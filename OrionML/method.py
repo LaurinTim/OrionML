@@ -17,23 +17,24 @@ class GDLinear():
             
     def compute_gradients(self, x, y, w, b):
         num_ex = x.shape[0]
-        
-        if len(x.shape)==1:
-            x = copy.copy(x.reshape(-1,num_ex))
             
-        if len(y.shape)==1:
-            y = copy.copy(y.reshape(-1,num_ex))
-                
-        f_wb = np.sum(w*x, axis=1) + b
+        f_wb = (np.sum(w*x, axis=1) + b).reshape(num_ex, 1)
         dj_dw = 1/num_ex * np.sum(x*(f_wb - y), axis=0)
         dj_db = 1/num_ex * np.sum(f_wb - y)
         
         return dj_dw, dj_db
     
     def gradient_descent(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
-        w_initial = np.random.rand(1)
-        b_initial = np.random.rand(1)
+        num_ex = x.shape[0]
         
+        if len(x.shape)==1:
+            x = copy.copy(x.reshape(num_ex, -1))
+            
+        if len(y.shape)==1:
+            y = copy.copy(y.reshape(num_ex, -1))
+        
+        w_initial = np.random.rand(x.shape[1])
+        b_initial = np.random.rand(1)
         cost_function = Loss.mse
                 
         J_history = []
@@ -43,7 +44,6 @@ class GDLinear():
         b = b_initial
         
         for i in range(num_iters):
-
             # Calculate the gradient and update the parameters
             dj_dw, dj_db = self.compute_gradients(x, y, w, b )  
     
@@ -56,14 +56,14 @@ class GDLinear():
     
             # Save cost J at each iteration
             if i<100000:      # prevent resource exhaustion
-                y_pred = w*x + b
+                y_pred = (np.sum(w*x, axis=1) + b).reshape(num_ex, 1)
                 cost =  cost_function(y, y_pred)
                 J_history.append(cost)
     
             if verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
                 if i% math.ceil(num_iters/10) == 0:
-                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}   ")
-                    
+                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
+                                        
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
                 
