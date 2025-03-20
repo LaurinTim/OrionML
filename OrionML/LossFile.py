@@ -80,7 +80,7 @@ class Loss():
             Cross Entropy Loss of the correct and predicted labels.
 
         '''
-        return - np.sum(y * np.log(y_pred) + (1 - y) * np.log(1 - y_pred)) / np.size(y)
+        return - np.sum(y * np.log(y_pred) + (1 - y) * np.log(1 - y_pred)) / y.shape[0]
     
     def hinge(y, y_pred):
         '''
@@ -97,13 +97,13 @@ class Loss():
         float
             Hinge Loss of the correct and predicted labels.
 
-        '''
-        l = 0
-    
-        size = np.size(y)
-    
-        for i in range(size):
-    
-            l = l + max(0, 1 - y[i] * y_pred[i])
+        '''    
+        size = y.shape[0]
+        
+        l = np.sum(np.clip(1 - np.sum(y*y_pred, axis=1), a_min=0, a_max=np.inf))
     
         return l / size
+    
+    def dhinge(y, y_pred):        
+        l = np.array(np.clip(1-np.clip(np.sum(y*y_pred, axis=1), a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool).reshape(-1,1)
+        return -1*l*y

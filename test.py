@@ -9,7 +9,7 @@ import OrionML as orn
 # %%
 
 x = np.random.rand(100)*10
-y = x*4.1 + 2 + (np.random.rand(100)*2)**2
+y = x*4.1 + 2 + ((np.random.rand(100)-0.5)*2)
 
 # %%
 
@@ -27,10 +27,10 @@ plt.plot([0,10], [w_pred*0+b_pred, w_pred*10+b_pred])
 
 # %%
 
-x0 = np.random.rand(100).reshape(-1,1)*10
-x1 = np.random.rand(100).reshape(-1,1)*10
+x0 = np.random.rand(1000).reshape(-1,1)*10
+x1 = np.random.rand(1000).reshape(-1,1)*10
 x = np.concatenate((x0, x1), axis=1)
-y = np.sum(np.array([[1.1, -0.3]])*x, axis=1) + 1.2 + ((np.random.rand(100)-0.5))
+y = np.sum(np.array([[1.1, -0.3]])*x, axis=1) + 1.2 + ((np.random.rand(1000)-0.5))
 # %%
 
 plt.figure()
@@ -40,7 +40,7 @@ plt.scatter(x1, y)
 
 # %%
 
-res = orn.method.GDRegressor(x, y, alpha=0.01, num_iters=1000, verbose=True)
+res = orn.method.GDRegressor(x, y, alpha=0.01, num_iters=10000, verbose=True)
 w_pred, b_pred = res.params
 J_history, w_history, b_history = res.history
 y_pred = w_pred*x + b_pred

@@ -8,5 +8,5 @@ os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\Ori
 
 from LossFile import Loss
 from utilsFile import utils
-#from method import LinearGD
 import method
+import activation

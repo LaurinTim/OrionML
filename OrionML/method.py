@@ -6,6 +6,7 @@ import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
 
 from LossFile import Loss
+import activation
 
 class GDRegressor():
     def __init__(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
@@ -56,7 +57,7 @@ class GDRegressor():
     
             # Save cost J at each iteration
             if i<100000:      # prevent resource exhaustion
-                y_pred = (np.sum(w*x, axis=1) + b).reshape(num_ex, 1)
+                y_pred = (np.sum(w*x, axis=1, keepdims=True) + b)
                 cost =  cost_function(y, y_pred)
                 J_history.append(cost)
     
@@ -66,4 +67,161 @@ class GDRegressor():
                     print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
+    
+class GDClassifier():
+    def __init__(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
+        
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, alpha, num_iters, verbose)
+        
+        self.params = (w, b)
+        self.history = (J_history, w_history, b_history)
+            
+    def compute_gradients(self, x, y, w, b):
+        num_ex = x.shape[0]
+        f_wb = activation.softmax(np.matmul(x,w) + b)
+        dL_dy = Loss.dhinge(y, f_wb)
+        dz = np.einsum('ijk,ik->ij', activation.dsoftmax(np.matmul(x, w) + b), dL_dy)
+
+        dj_dw = 1/num_ex * np.matmul(x.T, dz)
+        dj_db = 1/num_ex * np.sum(dz, axis=0, keepdims=True)
+
+        return dj_dw, dj_db
+    
+    def gradient_descent(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
+        num_ex = x.shape[0]
+        num_classes = y.shape[1]
+        
+        if len(x.shape)==1:
+            x = copy.copy(x.reshape(num_ex, -1))
+            
+        if len(y.shape)==1:
+            y = copy.copy(y.reshape(num_ex, -1))
+        
+        w_initial = np.random.rand(x.shape[1], num_classes)*1e-3
+        b_initial = np.random.rand(1, num_classes)*1e-3
+        cost_function = Loss.hinge
                 
+        J_history = []
+        w_history = []
+        b_history = []
+        w = copy.deepcopy(w_initial)
+        b = b_initial
+        
+        for i in range(num_iters):
+            # Calculate the gradient and update the parameters
+            dj_dw, dj_db = self.compute_gradients(x, y, w, b )  
+    
+            # Update Parameters using w, b, alpha and gradient
+            w = w - alpha * dj_dw               
+            b = b - alpha * dj_db      
+            
+            w_history.append(w)
+            b_history.append(b)
+    
+            # Save cost J at each iteration
+            if i<100000:      # prevent resource exhaustion
+                y_pred = activation.softmax(np.matmul(x,w) + b)
+                #print(y_pred)
+                cost =  cost_function(y, y_pred)
+                J_history.append(cost)
+    
+            if verbose == True:
+                # Print cost every at intervals 10 times or as many iterations if < 10
+                if i% math.ceil(num_iters/10) == 0:
+                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}")
+                                        
+        return w, b, J_history, w_history, b_history #return w and J,w history for graphing
+                
+    
+x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
+y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
+a = GDClassifier(x, y, alpha=1e-1, num_iters=1000, verbose=True)
+
+w, b = a.params
+
+jh, wh, bh = a.history
+
+wc = np.array([[1,0,0],[1,0,0],[0,1,0],[0,1,0],[0,0,1],[0,0,1]])
+bc = np.array([[0,0,0]])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
