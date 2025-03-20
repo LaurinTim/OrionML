@@ -19,7 +19,7 @@ from sklearn.metrics import confusion_matrix
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from tqdm import tqdm
 
-data_path = r'C:\\Users\main\Proton Drive\laurin.koller\My files\ML\Animal-classification'
+data_path = r'C:\Users\main\Proton Drive\laurin.koller\My files\ML\repos\OrionML\Examples\example data\animal_face'
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -61,7 +61,6 @@ def resize_all(src, pklname, include, width=150, height=None):
  
     # read all images in PATH, resize and write to DESTINATION_PATH
     for subdir in os.listdir(src):
-        print(subdir)
         if subdir in include:
             print(subdir)
             current_path = os.path.join(src, subdir)
@@ -76,7 +75,7 @@ def resize_all(src, pklname, include, width=150, height=None):
  
         joblib.dump(data, pklname)
         
-base_name = r'C:\\Users\main\Desktop\ML\AnimalFace\pkl_files\\animal_faces'
+base_name = r"C:\Users\main\Desktop\ML\AnimalFace\pkl_files\animal_faces"
 width = 80
  
 include = {'ChickenHead', 'BearHead', 'ElephantHead', 'EagleHead', 
