@@ -90,6 +90,7 @@ class GDClassifier():
     def gradient_descent(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
         num_ex = x.shape[0]
         num_classes = y.shape[1]
+        print(num_ex, num_classes)
         
         if len(x.shape)==1:
             x = copy.copy(x.reshape(num_ex, -1))

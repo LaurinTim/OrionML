@@ -18,5 +18,4 @@ w, b = a.params
 
 jh, wh, bh = a.history
 
-wc = np.array([[1,0,0],[1,0,0],[0,1,0],[0,1,0],[0,0,1],[0,0,1]])
-bc = np.array([[0,0,0]])
+y_pred = orn.activation.softmax(np.matmul(x,w) + b)

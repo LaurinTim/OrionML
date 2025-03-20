@@ -256,6 +256,29 @@ print('Percentage correct: ', 100*np.sum(y_pred == y_test)/len(y_test))
 
 # %%
 
+def arr_one(pos):
+    arr = np.zeros(len(labels))
+    arr[pos] = 1
+    return arr
+
+one_hot_map = {labels[i]: arr_one(i) for i in range(len(labels))}
+
+y_traino = np.array([one_hot_map.get(val) for val in y_train])
+y_testo = np.array([one_hot_map.get(val) for val in y_test])
+
+# %%
+
+gd = orn.method.GDClassifier(X_train_prepared, y_traino, alpha=1e-2, num_iters=1000, verbose=True)
+w,b = gd.params
+
+# %%
+
+y_predo = np.array([np.random.multinomial(1,val) for val in orn.activation.softmax(np.matmul(X_test_prepared,w) + b)])
+
+print('Percentage correct: ', 100*np.sum([(val==bal).all() for val,bal in zip(y_predo,y_testo)])/len(y_testo))
+
+# %%
+
 cmx = confusion_matrix(y_test, y_pred)
  
 def plot_confusion_matrix(cmx, vmax1=None, vmax2=None, vmax3=None):
