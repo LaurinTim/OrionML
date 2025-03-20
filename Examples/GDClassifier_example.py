@@ -12,10 +12,11 @@ import OrionML as orn
 
 x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
 y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
-a = orn.method.GDClassifier(x, y, alpha=1e-1, num_iters=1000, verbose=True)
+a = orn.method.GDClassifier(alpha=1e-1, num_iters=1000, verbose=True, batch_size=1)
+a.fit(x, y)
 
 w, b = a.params
 
 jh, wh, bh = a.history
 
-y_pred = orn.activation.softmax(np.matmul(x,w) + b)
+y_pred = a.predict(x)

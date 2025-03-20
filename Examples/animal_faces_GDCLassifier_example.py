@@ -267,10 +267,8 @@ y_testo = np.array([one_hot_map.get(val) for val in y_test])
 
 # %%
 
-gd = orn.method.GDClassifier(alpha=1e-2, num_iters=1000, verbose=True)
+gd = orn.method.GDClassifier(alpha=1e-2, num_iters=1000, verbose=True, batch_size=1)
 gd.fit(X_train_prepared, y_traino)
-
-# %%
 
 y_predo = gd.predict(X_test_prepared)
 

@@ -9,11 +9,12 @@ from LossFile import Loss
 import activation
 
 class GDRegressor():
-    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False):
+    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False, batch_size=None):
         
         self.alpha = alpha
         self.num_iters = num_iters
         self.verbose = verbose
+        self.batch_size = batch_size
         
     def fit(self, x, y) -> None:
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.alpha, self.num_iters, self.verbose)
@@ -53,13 +54,21 @@ class GDRegressor():
         w = copy.deepcopy(w_initial)
         b = b_initial
         
+        if self.batch_size==None:
+            x_batches = [x]
+            y_batches = [y]
+        else:
+            x_batches = [x[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
+            y_batches = [y[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
+        
         for i in range(num_iters):
-            # Calculate the gradient and update the parameters
-            dj_dw, dj_db = self.compute_gradients(x, y, w, b )  
+            for curr_x, curr_y in zip(x_batches,y_batches):
+                # Calculate the gradient and update the parameters
+                dj_dw, dj_db = self.compute_gradients(curr_x, curr_y, w, b )  
     
-            # Update Parameters using w, b, alpha and gradient
-            w = w - alpha * dj_dw               
-            b = b - alpha * dj_db      
+                # Update Parameters using w, b, alpha and gradient
+                w = w - alpha * dj_dw               
+                b = b - alpha * dj_db      
             
             w_history.append(w)
             b_history.append(b)
@@ -79,11 +88,12 @@ class GDRegressor():
     
     
 class GDClassifier():
-    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False):
+    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False, batch_size=None):
         
         self.alpha = alpha
         self.num_iters = num_iters
         self.verbose = verbose
+        self.batch_size = batch_size
         
     def fit(self, x, y) -> None:
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.alpha, self.num_iters, self.verbose)
@@ -127,13 +137,21 @@ class GDClassifier():
         w = copy.deepcopy(w_initial)
         b = b_initial
         
+        if self.batch_size==None:
+            x_batches = [x]
+            y_batches = [y]
+        else:
+            x_batches = [x[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
+            y_batches = [y[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
+        
         for i in range(num_iters):
-            # Calculate the gradient and update the parameters
-            dj_dw, dj_db = self.compute_gradients(x, y, w, b )  
-    
-            # Update Parameters using w, b, alpha and gradient
-            w = w - alpha * dj_dw               
-            b = b - alpha * dj_db      
+            for curr_x, curr_y in zip(x_batches,y_batches):
+                # Calculate the gradient and update the parameters
+                dj_dw, dj_db = self.compute_gradients(curr_x, curr_y, w, b )  
+        
+                # Update Parameters using w, b, alpha and gradient
+                w = w - alpha * dj_dw               
+                b = b - alpha * dj_db
             
             w_history.append(w)
             b_history.append(b)
