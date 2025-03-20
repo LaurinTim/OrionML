@@ -7,7 +7,7 @@ os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\Ori
 
 from LossFile import Loss
 
-class GDLinear():
+class GDRegressor():
     def __init__(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
         
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, alpha, num_iters, verbose)

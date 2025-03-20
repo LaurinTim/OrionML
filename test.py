@@ -13,7 +13,7 @@ y = x*4.1 + 2 + (np.random.rand(100)*2)**2
 
 # %%
 
-res = orn.method.GDLinear(x, y, alpha=1e-2, num_iters=1000, verbose=True)
+res = orn.method.GDRegressor(x, y, alpha=1e-2, num_iters=1000, verbose=True)
 
 w_pred, b_pred = res.params
 J_history, w_history, b_history = res.history
@@ -40,7 +40,7 @@ plt.scatter(x1, y)
 
 # %%
 
-res = orn.method.GDLinear(x, y, alpha=0.01, num_iters=1000, verbose=True)
+res = orn.method.GDRegressor(x, y, alpha=0.01, num_iters=1000, verbose=True)
 w_pred, b_pred = res.params
 J_history, w_history, b_history = res.history
 y_pred = w_pred*x + b_pred
