@@ -9,12 +9,21 @@ from LossFile import Loss
 import activation
 
 class GDRegressor():
-    def __init__(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
+    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False):
         
-        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, alpha, num_iters, verbose)
+        self.alpha = alpha
+        self.num_iters = num_iters
+        self.verbose = verbose
+        
+    def fit(self, x, y) -> None:
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.alpha, self.num_iters, self.verbose)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
+        
+    def predict(self, x):
+        y_pred = np.matmul(x, self.params[0]) + self.params[1]
+        return y_pred
             
     def compute_gradients(self, x, y, w, b):
         num_ex = x.shape[0]
@@ -69,12 +78,21 @@ class GDRegressor():
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
     
 class GDClassifier():
-    def __init__(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
+    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False):
         
-        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, alpha, num_iters, verbose)
+        self.alpha = alpha
+        self.num_iters = num_iters
+        self.verbose = verbose
+        
+    def fit(self, x, y) -> None:
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.alpha, self.num_iters, self.verbose)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
+        
+    def predict(self, x):
+        y_pred = np.array([np.random.multinomial(1,val) for val in activation.softmax(np.matmul(x,self.params[0]) + self.params[1])])
+        return y_pred
             
     def compute_gradients(self, x, y, w, b):
         num_ex = x.shape[0]

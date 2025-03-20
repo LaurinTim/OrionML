@@ -267,12 +267,12 @@ y_testo = np.array([one_hot_map.get(val) for val in y_test])
 
 # %%
 
-gd = orn.method.GDClassifier(X_train_prepared, y_traino, alpha=1e-2, num_iters=1000, verbose=True)
-w,b = gd.params
+gd = orn.method.GDClassifier(alpha=1e-2, num_iters=1000, verbose=True)
+gd.fit(X_train_prepared, y_traino)
 
 # %%
 
-y_predo = np.array([np.random.multinomial(1,val) for val in orn.activation.softmax(np.matmul(X_test_prepared,w) + b)])
+y_predo = gd.predict(X_test_prepared)
 
 print('Percentage correct: ', 100*np.sum([(val==bal).all() for val,bal in zip(y_predo,y_testo)])/len(y_testo))
 
