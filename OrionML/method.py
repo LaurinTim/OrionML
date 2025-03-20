@@ -27,11 +27,11 @@ class GDRegressor():
             
     def compute_gradients(self, x, y, w, b):
         num_ex = x.shape[0]
-            
-        f_wb = (np.sum(w*x, axis=1) + b).reshape(num_ex, 1)
-        dj_dw = 1/num_ex * np.sum(x*(f_wb - y), axis=0)
+
+        f_wb = (np.sum(np.matmul(x,w), axis=1) + b).reshape(num_ex, 1)
+        dj_dw = 1/num_ex * np.sum(x*(f_wb - y), axis=0).reshape(-1,1)
         dj_db = 1/num_ex * np.sum(f_wb - y)
-        
+
         return dj_dw, dj_db
     
     def gradient_descent(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
@@ -43,8 +43,8 @@ class GDRegressor():
         if len(y.shape)==1:
             y = copy.copy(y.reshape(num_ex, -1))
         
-        w_initial = np.random.rand(x.shape[1])
-        b_initial = np.random.rand(1)
+        w_initial = np.random.rand(x.shape[1], 1)
+        b_initial = np.random.rand(1, 1)
         cost_function = Loss.mse
                 
         J_history = []
@@ -66,7 +66,7 @@ class GDRegressor():
     
             # Save cost J at each iteration
             if i<100000:      # prevent resource exhaustion
-                y_pred = (np.sum(w*x, axis=1, keepdims=True) + b)
+                y_pred = (np.sum(np.matmul(x,w), axis=1, keepdims=True) + b)
                 cost =  cost_function(y, y_pred)
                 J_history.append(cost)
     
@@ -76,6 +76,7 @@ class GDRegressor():
                     print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}") #, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
+    
     
 class GDClassifier():
     def __init__(self, alpha=1e-2, num_iters=1000, verbose=False):
