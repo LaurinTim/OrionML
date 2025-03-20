@@ -48,7 +48,7 @@ def resize_all(src, pklname, include, width=150, height=None):
     include: set[str]
         set containing str
     """
-     
+    
     height = height if height is not None else width
      
     data = dict()
@@ -61,6 +61,7 @@ def resize_all(src, pklname, include, width=150, height=None):
  
     # read all images in PATH, resize and write to DESTINATION_PATH
     for subdir in os.listdir(src):
+        print(subdir)
         if subdir in include:
             print(subdir)
             current_path = os.path.join(src, subdir)
@@ -81,10 +82,8 @@ width = 80
 include = {'ChickenHead', 'BearHead', 'ElephantHead', 'EagleHead', 
            'DeerHead', 'MonkeyHead', 'PandaHead', 'CatHead', 'CowHead', 
            'DuckHead', 'LionHead', 'HumanHead'}
-
-#include = set([x[0][42:] for x in os.walk(data_path)][1:])
  
-resize_all(src=data_path, pklname=base_name, width=width, include=include)
+#resize_all(src=data_path + "\\Image", pklname=base_name, width=width, include=include)
 
 # %%
 

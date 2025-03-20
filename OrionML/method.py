@@ -64,7 +64,7 @@ class GDRegressor():
             if verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
                 if i% math.ceil(num_iters/10) == 0:
-                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
+                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}") #, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
     
@@ -131,18 +131,6 @@ class GDClassifier():
                     print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
-                
-    
-x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
-y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
-a = GDClassifier(x, y, alpha=1e-1, num_iters=1000, verbose=True)
-
-w, b = a.params
-
-jh, wh, bh = a.history
-
-wc = np.array([[1,0,0],[1,0,0],[0,1,0],[0,1,0],[0,0,1],[0,0,1]])
-bc = np.array([[0,0,0]])
 
 
 
