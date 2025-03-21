@@ -10,3 +10,4 @@ import Loss
 import utils
 import method
 import activation
+import regularizer

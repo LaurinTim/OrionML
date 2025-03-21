@@ -7,9 +7,10 @@ os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\Ori
 
 import Loss
 import activation
+import regularizer
 
 class GDRegressor():
-    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, alpha=1, epsilon=0.1):
+    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, alpha=1, epsilon=0.1, penalty=None, l=0.01, l0=0.5):
         self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
@@ -26,6 +27,21 @@ class GDRegressor():
             
         else:
             print("Invalid Loss function. Please select one of {squared_error, L1, L2}.")
+            
+        if penalty==None:
+            self.reg = regularizer.NoRegularizer()
+            
+        elif penalty=="L1":
+            self.reg = regularizer.L1Regularizer(l=l)
+            
+        elif penalty=="L2":
+            self.reg = regularizer.L2Regularizer(l=l)
+            
+        elif penalty=="Elastic":
+            self.reg = regularizer.ElasticNetRegularizer(l=l, l0=l0)
+            
+        else:
+            print("Invalid regularizer. Please select one of {L1, L2, Elastic} or None.")
         
     def fit(self, x, y) -> None:
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
@@ -42,7 +58,7 @@ class GDRegressor():
 
         f_wb = (np.sum(np.matmul(x,w), axis=1) + b).reshape(num_ex, 1)
         dL_dy = self.cost_function.derivative(y, f_wb)
-        dj_dw = np.sum(x*(dL_dy), axis=0).reshape(-1,1)
+        dj_dw = (np.sum(x*(dL_dy), axis=0)).reshape(-1,1) + self.reg.derivative(w)
         dj_db = np.sum(dL_dy)
 
         return dj_dw, dj_db
@@ -87,7 +103,7 @@ class GDRegressor():
             # Save cost J at each iteration
             if i<100000:      # prevent resource exhaustion
                 y_pred = (np.sum(np.matmul(x,w), axis=1, keepdims=True) + b)
-                cost =  self.cost_function.value(y, y_pred)
+                cost =  self.cost_function.value(y, y_pred) + self.reg.value(w)
                 J_history.append(cost)
     
             if verbose == True:
@@ -98,7 +114,7 @@ class GDRegressor():
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
     
 class GDClassifier():
-    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, epsilon=0.1):
+    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, epsilon=0.1, penalty=None, l=0.01, l0=0.5):
         
         self.learning_rate = learning_rate
         self.num_iters = num_iters
@@ -109,20 +125,38 @@ class GDClassifier():
         if loss_function=="squared_error" or loss_function=="mse":
             self.cost_function = Loss.mse()
             
-        if loss_function=="hinge":
+        elif loss_function=="hinge":
             self.cost_function = Loss.hinge()
             
-        if loss_function=="squared_hinge":
+        elif loss_function=="squared_hinge":
             self.cost_function = Loss.squared_hinge()
             
-        if loss_function=="cross_entropy" or loss_function=="logistic_regression" or loss_function=="log_loss":
+        elif loss_function=="cross_entropy" or loss_function=="logistic_regression" or loss_function=="log_loss":
             self.cost_function = Loss.cross_entropy()
             
-        if loss_function=="L1":
+        elif loss_function=="L1":
             self.cost_function = Loss.L1(epsilon=epsilon)
             
-        if loss_function=="L2":
+        elif loss_function=="L2":
             self.cost_function = Loss.L2(epsilon=epsilon)
+            
+        else:
+            print("Invalid Loss function. Please select one of {squared_error, hinge, squared_hinge, cross_entropy, L1, L2}.")
+            
+        if penalty==None:
+            self.reg = regularizer.NoRegularizer()
+            
+        elif penalty=="L1":
+            self.reg = regularizer.L1Regularizer(l=l)
+            
+        elif penalty=="L2":
+            self.reg = regularizer.L2Regularizer(l=l)
+            
+        elif penalty=="Elastic":
+            self.reg = regularizer.ElasticNetRegularizer(l=l, l0=l0)
+            
+        else:
+            print("Invalid regularizer. Please select one of {L1, L2, Elastic} or None.")
         
     def fit(self, x, y) -> None:
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
@@ -141,7 +175,7 @@ class GDClassifier():
         dL_dy = self.cost_function.derivative(y, f_wb)
         dz = np.einsum('ijk,ik->ij', self.activation.derivative(np.matmul(x, w) + b), dL_dy)
 
-        dj_dw = 1/num_ex * np.matmul(x.T, dz)
+        dj_dw = 1/num_ex * np.matmul(x.T, dz) + self.reg.derivative(w)
         dj_db = 1/num_ex * np.sum(dz, axis=0, keepdims=True)
 
         return dj_dw, dj_db
@@ -189,7 +223,7 @@ class GDClassifier():
                 y_pred = self.activation.value(np.matmul(x,w) + b)
                 #print(y_pred)
                 #cost =  self.cost_function.value(y, np.array([np.random.multinomial(1,val) for val in y_pred]))
-                cost =  self.cost_function.value(y, y_pred)
+                cost =  self.cost_function.value(y, y_pred) + self.reg.value(w)
                 J_history.append(cost)
     
             if verbose == True:

@@ -1,23 +1,20 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from collections import Counter
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 import joblib
 from skimage.io import imread
-from skimage.transform import resize, rescale
+from skimage.transform import resize
 from sklearn.model_selection import train_test_split
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import SGDClassifier
-from sklearn.model_selection import cross_val_predict
-from sklearn.preprocessing import StandardScaler, Normalizer
+from sklearn.preprocessing import StandardScaler
 import skimage
 from skimage.feature import hog
 from sklearn.metrics import confusion_matrix
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from tqdm import tqdm
 
 data_path = r'C:\Users\main\Proton Drive\laurin.koller\My files\ML\repos\OrionML\Examples\example data\animal_face'
 
@@ -266,7 +263,9 @@ y_traino = np.array([one_hot_map.get(val) for val in y_train])
 y_testo = np.array([one_hot_map.get(val) for val in y_test])
 
 # %%
-gd = orn.method.GDClassifier(loss_function="hinge", learning_rate=1e-2, num_iters=1000, verbose=True, batch_size=10)
+np.random.seed(2)
+
+gd = orn.method.GDClassifier(loss_function="hinge", learning_rate=1, num_iters=600, verbose=True, batch_size=None, penalty=None, l=0.001, l0=0.5)
 
 gd.fit(X_train_prepared, y_traino)
 

@@ -207,29 +207,6 @@ class hinge():
         yc[yc==0] = -1
         l = np.array(np.clip(1-np.clip(yc*y_pred, a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool)
         return -1*l*yc
-'''  
-class hinge():
-    def __init__(self):
-        return
-    
-    def value(self, y, y_pred):
-        
-        yc = copy.copy(y)
-        yc[yc==0] = -1
-        yp = copy.copy(y_pred)
-        yp[yp==0] = -1
-        l = np.sum(np.clip(1 - yc*yp, a_min=0, a_max=np.inf))
-        
-        return l / np.size(yc)
-    
-    def derivative(self, y, y_pred):
-              
-        yc = copy.copy(y)
-        yc[yc==0] = -1
-        yp = copy.copy(y_pred)
-        yp[yp==0] = -1
-        l = np.array(np.clip(1 - yc*yp, a_min=0, a_max=np.inf), dtype=bool)
-        return -1*l*yc'''
     
 class squared_hinge():
     def __init__(self):
@@ -276,28 +253,6 @@ class squared_hinge():
         yc[yc==0] = -1
         l = np.array(np.clip(1-np.clip(yc*y_pred, a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool)
         return -2*yc*l*(1-yc*y_pred)
-'''  
-class squared_hinge():
-    def __init__(self):
-        return
-    
-    def value(self, y, y_pred):
-        
-        yc = copy.copy(y)
-        yc[yc==0] = -1
-        yp = copy.copy(y_pred)
-        yp[yp==0] = -1
-        l = np.sum(np.clip(1 - yc*yp, a_min=0, a_max=np.inf)**2)
-        return l / np.size(yc)
-    
-    def derivative(self, y, y_pred):
-           
-        yc = copy.copy(y)
-        yc[yc==0] = -1
-        yp = copy.copy(y_pred)
-        yp[yp==0] = -1
-        l = np.array(np.clip(1 - yc*yp, a_min=0, a_max=np.inf), dtype=bool)
-        return -2*yc*l*(1-yc*yp)'''
 
 class L1loss():
     def __init__(self, epsilon=0.1):
