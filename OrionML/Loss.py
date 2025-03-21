@@ -1,11 +1,12 @@
 import numpy as np
+import copy
 
 
 class mse():
     def __init__(self):
         return
     
-    def loss_value(self, y, y_pred):
+    def value(self, y, y_pred):
         '''
     
         Parameters
@@ -23,7 +24,7 @@ class mse():
         '''
         return np.sum( ( y - y_pred ) ** 2 ) / y.shape[0]
     
-    def loss_derivative(self, y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters
@@ -45,7 +46,7 @@ class mae():
     def __init__(self):
         return
     
-    def loss_value(self, y, y_pred):
+    def value(self, y, y_pred):
         '''
     
         Parameters
@@ -63,7 +64,7 @@ class mae():
         '''
         return np.sum( np.abs( y - y_pred ) ) / y.shape[0]
     
-    def loss_derivative(self, y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters
@@ -85,7 +86,7 @@ class mbe():
     def __init__(self):
         return
     
-    def loss_value(self, y, y_pred ) :
+    def value(self, y, y_pred ) :
         '''
     
         Parameters
@@ -103,7 +104,7 @@ class mbe():
         '''
         return np.sum( y - y_pred ) / y.shape[0]
     
-    def loss_derivative(self, y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters
@@ -125,7 +126,7 @@ class cross_entropy():
     def __init__(self):
         return
     
-    def loss_value(self, y, y_pred):
+    def value(self, y, y_pred):
         '''
     
         Parameters
@@ -143,7 +144,7 @@ class cross_entropy():
         '''
         return - np.sum(y * np.log(y_pred) + (1 - y) * np.log(1 - y_pred)) / y.shape[0]
     
-    def loss_derivative(self, y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters
@@ -165,7 +166,7 @@ class hinge():
     def __init__(self):
         return
     
-    def loss_value(self, y, y_pred):
+    def value(self, y, y_pred):
         '''
     
         Parameters
@@ -180,12 +181,13 @@ class hinge():
         float
             Hinge Loss of the correct and predicted labels.
     
-        '''    
-        l = np.sum(np.clip(1 - np.sum(y*y_pred, axis=1), a_min=0, a_max=np.inf))
+        '''
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        l = np.sum(np.clip(1 - yc*y_pred, a_min=0, a_max=np.inf))
+        return l / np.size(yc)
     
-        return l / y.shape[0]
-    
-    def loss_derivative(y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters
@@ -200,9 +202,102 @@ class hinge():
         float
             Derivative of the Hinge Loss of the correct and predicted labels.
     
-        '''        
-        l = np.array(np.clip(1-np.clip(np.sum(y*y_pred, axis=1), a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool).reshape(-1,1)
-        return -1*l*y
+        '''
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        l = np.array(np.clip(1-np.clip(yc*y_pred, a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool)
+        return -1*l*yc
+'''  
+class hinge():
+    def __init__(self):
+        return
+    
+    def value(self, y, y_pred):
+        
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        yp = copy.copy(y_pred)
+        yp[yp==0] = -1
+        l = np.sum(np.clip(1 - yc*yp, a_min=0, a_max=np.inf))
+        
+        return l / np.size(yc)
+    
+    def derivative(self, y, y_pred):
+              
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        yp = copy.copy(y_pred)
+        yp[yp==0] = -1
+        l = np.array(np.clip(1 - yc*yp, a_min=0, a_max=np.inf), dtype=bool)
+        return -1*l*yc'''
+    
+class squared_hinge():
+    def __init__(self):
+        return
+    
+    def value(self, y, y_pred):
+        '''
+    
+        Parameters
+        ----------
+        y : ndarray
+            Correct labels.
+        y_pred : ndarray
+            Predicted labels.
+    
+        Returns
+        -------
+        float
+            Hinge Loss of the correct and predicted labels.
+    
+        '''
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        l = np.sum(np.clip(1 - yc*y_pred, a_min=0, a_max=np.inf)**2)
+        return l / np.size(yc)
+    
+    def derivative(self, y, y_pred):
+        '''
+    
+        Parameters
+        ----------
+        y : ndarray
+            Correct labels.
+        y_pred : ndarray
+            Predicted labels.
+    
+        Returns
+        -------
+        float
+            Derivative of the Hinge Loss of the correct and predicted labels.
+    
+        '''
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        l = np.array(np.clip(1-np.clip(yc*y_pred, a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool)
+        return -2*yc*l*(1-yc*y_pred)
+'''  
+class squared_hinge():
+    def __init__(self):
+        return
+    
+    def value(self, y, y_pred):
+        
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        yp = copy.copy(y_pred)
+        yp[yp==0] = -1
+        l = np.sum(np.clip(1 - yc*yp, a_min=0, a_max=np.inf)**2)
+        return l / np.size(yc)
+    
+    def derivative(self, y, y_pred):
+           
+        yc = copy.copy(y)
+        yc[yc==0] = -1
+        yp = copy.copy(y_pred)
+        yp[yp==0] = -1
+        l = np.array(np.clip(1 - yc*yp, a_min=0, a_max=np.inf), dtype=bool)
+        return -2*yc*l*(1-yc*yp)'''
 
 class L1loss():
     def __init__(self, epsilon=0.1):
@@ -217,7 +312,7 @@ class L1loss():
         '''
         self.epsilon = epsilon
     
-    def loss_value(self, y, y_pred):
+    def value(self, y, y_pred):
         '''
     
         Parameters
@@ -235,7 +330,7 @@ class L1loss():
         '''
         return np.sum(np.clip(np.abs(y-y_pred)-self.epsilon, a_min=0, a_max=np.inf))
     
-    def loss_derivative(self, y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters
@@ -267,7 +362,7 @@ class L2loss():
         '''
         self.epsilon=epsilon
     
-    def loss_value(self, y, y_pred):
+    def value(self, y, y_pred):
         '''
     
         Parameters
@@ -285,7 +380,7 @@ class L2loss():
         '''
         return np.sum(np.clip((y-y_pred)**2-self.epsilon, a_min=0, a_max=np.inf))
     
-    def loss_derivative(self, y, y_pred):
+    def derivative(self, y, y_pred):
         '''
     
         Parameters

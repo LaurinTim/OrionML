@@ -5,7 +5,7 @@ class linear():
     def __init__(self):
         return
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -21,7 +21,7 @@ class linear():
         '''
         return z
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -41,7 +41,7 @@ class relu():
     def __init__(self):
         return
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -57,7 +57,7 @@ class relu():
         '''
         return np.clip(z, a_min=0, a_max=np.inf)
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -85,7 +85,7 @@ class elu():
         '''
         self.alpha = alpha
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -101,7 +101,7 @@ class elu():
         '''
         return np.clip(z, a_min=0, a_max=np.inf) + np.array(z<0, dtype=float)*self.alpha*(np.exp(z)-1)
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -129,7 +129,7 @@ class leakyrelu():
         '''
         self.alpha = alpha
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -145,7 +145,7 @@ class leakyrelu():
         '''
         return np.clip(z, a_min=0, a_max=np.inf) + self.alpha*np.clip(z, a_min=-np.inf, a_max=0)
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -165,7 +165,7 @@ class softplus():
     def __init__(self):
         return
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -181,7 +181,7 @@ class softplus():
         '''
         return np.log(1+np.exp(z))
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -201,7 +201,7 @@ class sigmoid():
     def __init__(self):
         return
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -217,7 +217,7 @@ class sigmoid():
         '''
         return 1/(1+np.exp(-z))
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -238,7 +238,7 @@ class tanh():
     def __init__(self):
         return
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -254,7 +254,7 @@ class tanh():
         '''
         return (np.exp(z)-np.exp(-z))/(np.exp(z)+np.exp(-z))
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -268,14 +268,14 @@ class tanh():
             Derivative at the values with respect to a Tanh activation function.
     
         '''
-        res = tanh(z)
+        res = self.value(z)
         return 1 - res**2
 
 class softmax():
     def __init__(self):
         return
     
-    def activation_value(self, z):
+    def value(self, z):
         '''
     
         Parameters
@@ -291,7 +291,7 @@ class softmax():
         '''
         return np.exp(z)/np.sum(np.exp(z), axis=1, keepdims=True)
     
-    def activation_derivative(self, z):
+    def derivative(self, z):
         '''
     
         Parameters
@@ -305,7 +305,7 @@ class softmax():
             Derivative at the values with respect to a Softmax activation function.
     
         '''
-        sz = softmax(z)
+        sz = self.value(z)
         res = -sz.reshape(sz.shape[0],-1,1) * sz.reshape(sz.shape[0],1,sz.shape[1])
         res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]))
         return res

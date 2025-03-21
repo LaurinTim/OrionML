@@ -9,19 +9,23 @@ import Loss
 import activation
 
 class GDRegressor():
-    def __init__(self, loss="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, alpha=1, epsilon=0.1):
+    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, alpha=1, epsilon=0.1):
         self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
         self.batch_size = batch_size
         
-        if loss=="squared_error":
-            self.cost_function = Loss.mse
-            self.cost_derivative = Loss.dmse
+        if loss_function=="squared_error" or loss_function=="mse":
+            self.cost_function = Loss.mse()
             
-        if loss=="L1":
-            self.cost_function = Loss.L1loss
-            self.cost_derivative = Loss.dmse
+        elif loss_function=="L1":
+            self.cost_function = Loss.L1loss(epsilon=epsilon)
+            
+        elif loss_function=="L2":
+            self.cost_function = Loss.L2loss(epsilon=epsilon)
+            
+        else:
+            print("Invalid Loss function. Please select one of {squared_error, L1, L2}.")
         
     def fit(self, x, y) -> None:
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
@@ -37,8 +41,9 @@ class GDRegressor():
         num_ex = x.shape[0]
 
         f_wb = (np.sum(np.matmul(x,w), axis=1) + b).reshape(num_ex, 1)
-        dj_dw = 1/num_ex * np.sum(x*(f_wb - y), axis=0).reshape(-1,1)
-        dj_db = 1/num_ex * np.sum(f_wb - y)
+        dL_dy = self.cost_function.derivative(y, f_wb)
+        dj_dw = np.sum(x*(dL_dy), axis=0).reshape(-1,1)
+        dj_db = np.sum(dL_dy)
 
         return dj_dw, dj_db
     
@@ -53,7 +58,6 @@ class GDRegressor():
         
         w_initial = np.random.rand(x.shape[1], 1)
         b_initial = np.random.rand(1, 1)
-        cost_function = Loss.mse
                 
         J_history = []
         w_history = []
@@ -83,39 +87,42 @@ class GDRegressor():
             # Save cost J at each iteration
             if i<100000:      # prevent resource exhaustion
                 y_pred = (np.sum(np.matmul(x,w), axis=1, keepdims=True) + b)
-                cost =  cost_function(y, y_pred)
+                cost =  self.cost_function.value(y, y_pred)
                 J_history.append(cost)
     
             if verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
                 if i% math.ceil(num_iters/10) == 0:
-                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}") #, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
+                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.4f}") #, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
-
-# %%
-
-#example where y depends only on 1 variable
-
-x = np.random.rand(1000, 1)*10
-y = x*4.1 + 2 + ((np.random.rand(1000, 1)-0.5))
-
-res = GDRegressor(alpha=0.01, num_iters=1000, verbose=True, batch_size=256)
-res.fit(x, y)
-
-w_pred, b_pred = res.params
-J_history, w_history, b_history = res.history
-y_pred = res.predict(x)
-
-# %%
     
 class GDClassifier():
-    def __init__(self, learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None):
+    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, epsilon=0.1):
         
         self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
         self.batch_size = batch_size
+        self.activation = activation.softmax()
+        
+        if loss_function=="squared_error" or loss_function=="mse":
+            self.cost_function = Loss.mse()
+            
+        if loss_function=="hinge":
+            self.cost_function = Loss.hinge()
+            
+        if loss_function=="squared_hinge":
+            self.cost_function = Loss.squared_hinge()
+            
+        if loss_function=="cross_entropy" or loss_function=="logistic_regression" or loss_function=="log_loss":
+            self.cost_function = Loss.cross_entropy()
+            
+        if loss_function=="L1":
+            self.cost_function = Loss.L1(epsilon=epsilon)
+            
+        if loss_function=="L2":
+            self.cost_function = Loss.L2(epsilon=epsilon)
         
     def fit(self, x, y) -> None:
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
@@ -124,14 +131,15 @@ class GDClassifier():
         self.history = (J_history, w_history, b_history)
         
     def predict(self, x):
-        y_pred = np.array([np.random.multinomial(1,val) for val in activation.softmax(np.matmul(x,self.params[0]) + self.params[1])])
+        y_pred = np.array([np.random.multinomial(1,val) for val in self.activation.value(np.matmul(x,self.params[0]) + self.params[1])])
         return y_pred
             
     def compute_gradients(self, x, y, w, b):
         num_ex = x.shape[0]
-        f_wb = activation.softmax(np.matmul(x,w) + b)
-        dL_dy = Loss.dhinge(y, f_wb)
-        dz = np.einsum('ijk,ik->ij', activation.dsoftmax(np.matmul(x, w) + b), dL_dy)
+        f_wb = self.activation.value(np.matmul(x,w) + b)
+        #dL_dy = self.cost_function.derivative(y, np.array([np.random.multinomial(1,val) for val in f_wb]))
+        dL_dy = self.cost_function.derivative(y, f_wb)
+        dz = np.einsum('ijk,ik->ij', self.activation.derivative(np.matmul(x, w) + b), dL_dy)
 
         dj_dw = 1/num_ex * np.matmul(x.T, dz)
         dj_db = 1/num_ex * np.sum(dz, axis=0, keepdims=True)
@@ -141,7 +149,6 @@ class GDClassifier():
     def gradient_descent(self, x, y, learning_rate=1e-2, num_iters=1000, verbose=False):
         num_ex = x.shape[0]
         num_classes = y.shape[1]
-        print(num_ex, num_classes)
         
         if len(x.shape)==1:
             x = copy.copy(x.reshape(num_ex, -1))
@@ -151,7 +158,6 @@ class GDClassifier():
         
         w_initial = np.random.rand(x.shape[1], num_classes)*1e-3
         b_initial = np.random.rand(1, num_classes)*1e-3
-        cost_function = Loss.hinge
                 
         J_history = []
         w_history = []
@@ -180,9 +186,10 @@ class GDClassifier():
     
             # Save cost J at each iteration
             if i<100000:      # prevent resource exhaustion
-                y_pred = activation.softmax(np.matmul(x,w) + b)
+                y_pred = self.activation.value(np.matmul(x,w) + b)
                 #print(y_pred)
-                cost =  cost_function(y, y_pred)
+                #cost =  self.cost_function.value(y, np.array([np.random.multinomial(1,val) for val in y_pred]))
+                cost =  self.cost_function.value(y, y_pred)
                 J_history.append(cost)
     
             if verbose == True:
