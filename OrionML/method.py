@@ -5,7 +5,7 @@ import math
 import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
 
-from LossFile import Loss
+import Loss
 import activation
 
 class GDRegressor():
@@ -166,7 +166,7 @@ class GDClassifier():
             if verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
                 if i% math.ceil(num_iters/10) == 0:
-                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}")
+                    print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.4f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
 
