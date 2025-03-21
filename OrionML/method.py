@@ -9,15 +9,22 @@ import Loss
 import activation
 
 class GDRegressor():
-    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False, batch_size=None):
-        
-        self.alpha = alpha
+    def __init__(self, loss="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, alpha=1, epsilon=0.1):
+        self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
         self.batch_size = batch_size
         
+        if loss=="squared_error":
+            self.cost_function = Loss.mse
+            self.cost_derivative = Loss.dmse
+            
+        if loss=="L1":
+            self.cost_function = Loss.L1loss
+            self.cost_derivative = Loss.dmse
+        
     def fit(self, x, y) -> None:
-        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.alpha, self.num_iters, self.verbose)
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
@@ -35,7 +42,7 @@ class GDRegressor():
 
         return dj_dw, dj_db
     
-    def gradient_descent(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
+    def gradient_descent(self, x, y, learning_rate=1e-2, num_iters=1000, verbose=False):
         num_ex = x.shape[0]
         
         if len(x.shape)==1:
@@ -66,9 +73,9 @@ class GDRegressor():
                 # Calculate the gradient and update the parameters
                 dj_dw, dj_db = self.compute_gradients(curr_x, curr_y, w, b )  
     
-                # Update Parameters using w, b, alpha and gradient
-                w = w - alpha * dj_dw               
-                b = b - alpha * dj_db      
+                # Update Parameters using w, b, learning_rate and gradient
+                w = w - learning_rate * dj_dw               
+                b = b - learning_rate * dj_db      
             
             w_history.append(w)
             b_history.append(b)
@@ -85,18 +92,33 @@ class GDRegressor():
                     print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.2f}") #, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
-    
+
+# %%
+
+#example where y depends only on 1 variable
+
+x = np.random.rand(1000, 1)*10
+y = x*4.1 + 2 + ((np.random.rand(1000, 1)-0.5))
+
+res = GDRegressor(alpha=0.01, num_iters=1000, verbose=True, batch_size=256)
+res.fit(x, y)
+
+w_pred, b_pred = res.params
+J_history, w_history, b_history = res.history
+y_pred = res.predict(x)
+
+# %%
     
 class GDClassifier():
-    def __init__(self, alpha=1e-2, num_iters=1000, verbose=False, batch_size=None):
+    def __init__(self, learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None):
         
-        self.alpha = alpha
+        self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
         self.batch_size = batch_size
         
     def fit(self, x, y) -> None:
-        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.alpha, self.num_iters, self.verbose)
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
@@ -116,7 +138,7 @@ class GDClassifier():
 
         return dj_dw, dj_db
     
-    def gradient_descent(self, x, y, alpha=1e-2, num_iters=1000, verbose=False):
+    def gradient_descent(self, x, y, learning_rate=1e-2, num_iters=1000, verbose=False):
         num_ex = x.shape[0]
         num_classes = y.shape[1]
         print(num_ex, num_classes)
@@ -149,9 +171,9 @@ class GDClassifier():
                 # Calculate the gradient and update the parameters
                 dj_dw, dj_db = self.compute_gradients(curr_x, curr_y, w, b )  
         
-                # Update Parameters using w, b, alpha and gradient
-                w = w - alpha * dj_dw               
-                b = b - alpha * dj_db
+                # Update Parameters using w, b, learning_rate and gradient
+                w = w - learning_rate * dj_dw               
+                b = b - learning_rate * dj_db
             
             w_history.append(w)
             b_history.append(b)
