@@ -101,10 +101,9 @@ class GDRegressor():
             b_history.append(b)
     
             # Save cost J at each iteration
-            if i<100000:      # prevent resource exhaustion
-                y_pred = (np.sum(np.matmul(x,w), axis=1, keepdims=True) + b)
-                cost =  self.cost_function.value(y, y_pred) + self.reg.value(w)
-                J_history.append(cost)
+            y_pred = (np.sum(np.matmul(x,w), axis=1, keepdims=True) + b)
+            cost =  self.cost_function.value(y, y_pred) + self.reg.value(w)
+            J_history.append(cost)
     
             if verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
