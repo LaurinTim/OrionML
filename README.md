@@ -1,4 +1,4 @@
-Tools for Machine Learning built using numpy arrays.
+## Tools for Machine Learning built using numpy arrays.
 
 Currently regression and classification models with gradient descent can be created. 
 For regression the following loss functions can be used:
@@ -25,3 +25,11 @@ The most common activation functions are also available:
   * sigmoid
   * tanh
   * softmax
+
+## Examples
+
+There are some examples available in the examples directory. 
+
+For regression, the GDRegressor_example_Boston_housing notebook contains an example predicting house prices in Boston based on 13 features.
+
+For classification, animal_faces_GDCLassifier_example.py contains an example where pictures are classified into 12 categories, based on which animal can be seen on the picture. To minimize computational power, a histogram of oriented gradients (hog) is created for each image. An accuracy of around 90% is reached in the validation set. The same data is also evaluated with the SGDClassifier from sklearn, with which again an accuracy around 90% is reached.
