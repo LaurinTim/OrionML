@@ -10,7 +10,37 @@ import activation
 import regularizer
 
 class GDRegressor():
-    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, alpha=1, epsilon=0.1, penalty=None, l=0.01, l0=0.5):
+    def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, epsilon=0.1, penalty=None, l=0.01, l0=0.5):
+        '''
+        Linear model fitted by minimizing a regularized empirical loss with GD.
+
+        Parameters
+        ----------
+        loss_function : str, optional
+            The loss function to be used. The available functions are: {squared_error, L1, L2}. 
+            The default is "squared_error".
+        learning_rate : float, optional
+            Learning rate used in GD. The default is 1e-2.
+        num_iters : int, optional
+            Number of iterations over the training data. The default is 1000.
+        verbose : bool, optional
+            Whether the loss should be printed periodically during training. The default is False.
+        batch_size : int/None, optional
+            Batch size used for the training. If set to None, the whole training set is trained 
+            on simultaniously. The default is None.
+        epsilon : float, optional
+            The value of epsilon for the loss functions "L1" and "L2". The default is 0.1.
+        penalty : str/None, optional
+            The regularizion technique that is used. The available regularizors are: 
+            {L1, L2, Elastic}. If set to None, no regularization is applied. The default is None.
+        l : float, optional
+            Constant that is multiplied with the regularization term. The default is 0.01.
+        l0 : float, optional
+            Mixing parameter for the elastic regularizer. The elastic regularizer is a combination 
+            of L1 and L2 regularization. L1 regularization is weighed by l0 and L2 regularization 
+            by 1-l0. Values must be in the range [0,1). The default is 0.5.
+
+        '''
         self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
@@ -44,12 +74,37 @@ class GDRegressor():
             print("Invalid regularizer. Please select one of {L1, L2, Elastic} or None.")
         
     def fit(self, x, y) -> None:
+        '''
+        Finds weights and bias to fit data to the target.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Training data.
+        y : ndarray, shape: (number of samples, 1)
+            Traget values.
+
+        '''
         w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
         
     def predict(self, x):
+        '''
+        Predict using the linear model.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Input data.
+
+        Returns
+        -------
+        y_pred : ndarray, shape: (number of samples, 1)
+            Predicted target values of each element in x.
+
+        '''
         y_pred = np.matmul(x, self.params[0]) + self.params[1]
         return y_pred
             

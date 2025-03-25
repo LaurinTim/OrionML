@@ -11,9 +11,9 @@ class mse():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -29,9 +29,9 @@ class mse():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -51,9 +51,9 @@ class mae():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -69,9 +69,9 @@ class mae():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -91,9 +91,9 @@ class mbe():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -109,9 +109,9 @@ class mbe():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -131,9 +131,9 @@ class cross_entropy():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -149,9 +149,9 @@ class cross_entropy():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -171,9 +171,9 @@ class hinge():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -192,9 +192,9 @@ class hinge():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -217,9 +217,9 @@ class squared_hinge():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -238,9 +238,9 @@ class squared_hinge():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -272,9 +272,9 @@ class L1loss():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -290,9 +290,9 @@ class L1loss():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -322,9 +322,9 @@ class L2loss():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns
@@ -340,9 +340,9 @@ class L2loss():
     
         Parameters
         ----------
-        y : ndarray
+        y : ndarray, shape: (number of samples, number of outputs)
             Correct labels.
-        y_pred : ndarray
+        y_pred : ndarray, shape: (number of samples, number of outputs)
             Predicted labels.
     
         Returns

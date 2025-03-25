@@ -24,8 +24,8 @@ class ElasticNetRegularizer():
     def __init__(self, l=0.01, l0=0.5):
         self.l = l
         self.l0 = l0
-        self.L1Reg = L1Regularizer(l=1-self.l0)
-        self.L2Reg = L2Regularizer(l=self.l0)
+        self.L1Reg = L1Regularizer(l=self.l0)
+        self.L2Reg = L2Regularizer(l=1-self.l0)
         
     def value(self, w):
         return self.l*(self.L1Reg.value(w) + self.L2Reg.value(w))
