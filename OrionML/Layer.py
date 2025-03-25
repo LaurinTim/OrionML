@@ -9,7 +9,7 @@ import activation as activ
 
 class Linear():
     
-    def __init__(self, dim1, dim2, bias=True):
+    def __init__(self, dim1, dim2, activation, bias=True):
         '''
         Linear layer.
 
@@ -19,6 +19,9 @@ class Linear():
             Size of the input sample.
         dim2 : int
             Size of the output sample.
+        activation : str
+            Activation to use for this layer. The available activations are: 
+            {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.
         bias : TYPE, optional
             Whether or not the layer contains a bias. The default is True.
 
@@ -28,7 +31,10 @@ class Linear():
         self.bias = bias
         self.w = np.zeros((dim1, dim2))
         self.b = np.zeros((1, dim2))
-                
+        
+        self.activation = activation
+        self.activation_function = self.get_activation_function()
+        
         self.trainable = True
         self.dimension = np.array([dim1, dim2])
         
@@ -36,7 +42,28 @@ class Linear():
         return "OrionML.Layer.Linear"
         
     def description(self):
-        return f"OrionML.Layer.Linear     (shape:({self.dim1, self.dim2})"
+        return f"OrionML.Layer.Linear  (shape:({self.dim1, self.dim2}), activation: {self.activaiton})"
+    
+    def get_activation_function(self):
+        '''
+        Get the correct activation function from the string input activation.
+
+        Returns
+        -------
+        Correct activation function class from OrionMl.activation.
+
+        '''
+        if self.activation == "linear": return activ.linear()
+        elif self.activation == "relu": return activ.relu()
+        elif self.activation == "elu": return activ.elu()
+        elif self.activation == "leakyrelu": return activ.leakyrelu()
+        elif self.activation == "softplus": return activ.softplus()
+        elif self.activation == "sigmoid": return activ.sigmoid()
+        elif self.activation == "tanh": return activ.tanh()
+        elif self.activation == "softmax": return activ.softmax()
+        else:
+            print("Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.")
+            return activ.linear()
             
     def update_parameters(self, w_new, b_new=None):
         if self.bias==True and b_new is None:
@@ -46,8 +73,15 @@ class Linear():
         if self.bias==True: self.b = b_new
         
     def value(self, x):
-        return np.matmul(x, self.w) + self.b
-            
+        z = np.matmul(x, self.w) + self.b
+        return self.activation_function.value(z), z
+    
+    def derivative(self, x):
+        z = np.matmul(x, self.w) + self.b
+        d_activ = self.activation_function.derivative(z)
+        return d_activ
+     
+       
 class Dropout():
     def __init__(self, dropout_probability=0.3, scale=True):
         '''
@@ -72,7 +106,7 @@ class Dropout():
         return "OrionML.Layer.Dropout"
         
     def description(self):
-        return f"OrionML.Layer.Dropout    (dropout probability: {self.dropout_probability})"
+        return f"OrionML.Layer.Dropout (dropout probability: {self.dropout_probability})"
         
     def value(self, weights):
         '''
@@ -89,59 +123,15 @@ class Dropout():
             Copy of wa but each element set to 0 with probability dropout_probability.
 
         '''
-        mask = np.random.rand(self.dimension[0], self.dimension[1]) > self.dropout_probability
+        mask = np.random.rand(weights.shape[0], weights.shape[1]) > self.dropout_probability
         res = mask*weights
         if self.scale==True:
             res = res * 1/self.dropout_probability
-        return res
+        return res, mask
     
-class Activation():
-    def __init__(self, activation):
-        '''
-        Activation Layer
+    def derivative(self, mask):
+        return mask
 
-        Parameters
-        ----------
-        activation : str
-            Activation to use for this layer. The available activations are: 
-            {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.
-
-        '''
-        self.activation = activation
-        self.activation_function = self.get_activation_function()
-        
-        self.trainable = False
-        
-    def type(self):
-        return "OrionML.Layer.Activation"
-        
-    def description(self):
-        return f"OrionML.Layer.Activation (activation function: {self.activation})"
-        
-    def get_activation_function(self):
-        '''
-        Get the correct activation function from the string input activation.
-
-        Returns
-        -------
-        Correct activation function class from OrionMl.activation.
-
-        '''
-        if self.activation == "linear": return activ.linear()
-        elif self.activation == "relu": return activ.relu()
-        elif self.activation == "elu": return activ.elu()
-        elif self.activation == "leakyrelu": return activ.leakyrelu()
-        elif self.activation == "softplus": return activ.softplus()
-        elif self.activation == "sigmoid": return activ.sigmoid()
-        elif self.activation == "tanh": return activ.tanh()
-        elif self.activation == "softmax": return activ.softmax()
-        else:
-            print("Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.")
-            return activ.linear()
-        
-    def value(self, x):
-        res = self.activation_function.value(x)
-        return res
             
 
 

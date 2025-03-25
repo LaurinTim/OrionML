@@ -31,11 +31,12 @@ class linear():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a Linear activation function.
     
         '''
-        return np.ones(z.shape)
+        #return np.ones(z.shape)
+        return np.tile(np.eye(z.shape[1])[None,:,:], (z.shape[0],1,1))
 
 class relu():
     def __init__(self):
@@ -67,11 +68,11 @@ class relu():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a ReLU activation function.
     
         '''
-        return np.array(z>0, dtype=float)
+        return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float), np.eye(z.shape[1]))
 
 class elu():
     def __init__(self, alpha=0.1):
@@ -111,11 +112,11 @@ class elu():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a eLU activation function.
     
         '''
-        return np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z)
+        return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z), np.eye(z.shape[1]))
 
 class leakyrelu():
     def __init__(self, alpha=0.1):
@@ -155,11 +156,11 @@ class leakyrelu():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a Leaky ReLU activation function.
     
         '''
-        return np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float)
+        return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float), np.eye(z.shape[1]))
 
 class softplus():
     def __init__(self):
@@ -191,11 +192,11 @@ class softplus():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a Softplus activation function.
     
         '''
-        return 1/(1+np.exp(z))
+        return np.einsum("ij,jk -> ijk", 1/(1+np.exp(z)), np.eye(z.shape[1]))
 
 class sigmoid():
     def __init__(self):
@@ -227,12 +228,12 @@ class sigmoid():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a Sigmoid activation function.
     
         '''
-        sig = sigmoid(z)
-        return sig*(1-sig)
+        sig = self.value(z)
+        return np.einsum("ij,jk -> ijk", sig*(1-sig), np.eye(z.shape[1]))
 
 class tanh():
     def __init__(self):
@@ -264,12 +265,12 @@ class tanh():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a Tanh activation function.
     
         '''
         res = self.value(z)
-        return 1 - res**2
+        return np.einsum("ij,jk -> ijk", 1 - res**2, np.eye(z.shape[1]))
 
 class softmax():
     def __init__(self):
@@ -301,7 +302,7 @@ class softmax():
     
         Returns
         -------
-        ndarray, shape: (input size, output size)
+        ndarray, shape: (input size, output size, output size)
             Derivative at the values with respect to a Softmax activation function.
     
         '''
