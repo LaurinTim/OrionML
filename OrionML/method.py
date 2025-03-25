@@ -85,7 +85,7 @@ class GDRegressor():
             Traget values.
 
         '''
-        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
@@ -109,6 +109,28 @@ class GDRegressor():
         return y_pred
             
     def compute_gradients(self, x, y, w, b):
+        '''
+        Get the gradient of the loss function with respect to the weights and the bias.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Input data.
+        y : ndarray, shape: (number of samples, 1)
+            Traget values.
+        w : ndarray, shape: (number of features, 1)
+            Weights at which the gradient is calculated.
+        b : ndarray, shape: (1, 1)
+            Bias at which the gradient is calculated.
+
+        Returns
+        -------
+        dj_dw : ndarray, shape: (number of features, 1)
+            Gradient of the loss function with respect to the weights.
+        dj_db : ndarray, shape: (1, 1)
+            Gradient of the loss function with respect to the bias.
+
+        '''
         num_ex = x.shape[0]
 
         f_wb = (np.sum(np.matmul(x,w), axis=1) + b).reshape(num_ex, 1)
@@ -118,7 +140,31 @@ class GDRegressor():
 
         return dj_dw, dj_db
     
-    def gradient_descent(self, x, y, learning_rate=1e-2, num_iters=1000, verbose=False):
+    def gradient_descent(self, x, y):
+        '''
+        Get weights and bias to fit the input to the target using gradient descent.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Input data.
+        y : ndarray, shape: (number of samples, 1)
+            Traget values.
+
+        Returns
+        -------
+        w : ndarray, shape: (number of features, 1)
+            Weights of the model.
+        b : ndarray, shape: (1, 1)
+            Bias of the model.
+        J_history : list
+            List containing the loss at each iteration.
+        w_history : list
+            List containing the weights at each iteration.
+        b_history : list
+            List containing the bias at each iteration.
+
+        '''
         num_ex = x.shape[0]
         
         if len(x.shape)==1:
@@ -143,14 +189,14 @@ class GDRegressor():
             x_batches = [x[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
             y_batches = [y[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
         
-        for i in range(num_iters):
+        for i in range(self.num_iters):
             for curr_x, curr_y in zip(x_batches,y_batches):
                 # Calculate the gradient and update the parameters
                 dj_dw, dj_db = self.compute_gradients(curr_x, curr_y, w, b )  
     
                 # Update Parameters using w, b, learning_rate and gradient
-                w = w - learning_rate * dj_dw               
-                b = b - learning_rate * dj_db      
+                w = w - self.learning_rate * dj_dw               
+                b = b - self.learning_rate * dj_db      
             
             w_history.append(w)
             b_history.append(b)
@@ -160,16 +206,45 @@ class GDRegressor():
             cost =  self.cost_function.value(y, y_pred) + self.reg.value(w)
             J_history.append(cost)
     
-            if verbose == True:
+            if self.verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
-                if i% math.ceil(num_iters/10) == 0:
+                if i% math.ceil(self.num_iters/10) == 0:
                     print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.4f}") #, params: {[round(float(val), 2) for val in w]}, {b[0]:0.2f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
     
 class GDClassifier():
     def __init__(self, loss_function="squared_error", learning_rate=1e-2, num_iters=1000, verbose=False, batch_size=None, epsilon=0.1, penalty=None, l=0.01, l0=0.5):
-        
+        '''
+        Linear classifier with GD training.
+
+        Parameters
+        ----------
+        loss_function : str, optional
+            The loss function to be used. The available functions are: 
+            {squared_error, hinge, squared_hinge, cross_entropy, L1, L2}. The default is "squared_error".
+        learning_rate : float, optional
+            Learning rate used in GD. The default is 1e-2.
+        num_iters : int, optional
+            Number of iterations over the training data. The default is 1000.
+        verbose : bool, optional
+            Whether the loss should be printed periodically during training. The default is False.
+        batch_size : int/None, optional
+            Batch size used for the training. If set to None, the whole training set is trained 
+            on simultaniously. The default is None.
+        epsilon : float, optional
+            The value of epsilon for the loss functions "L1" and "L2". The default is 0.1.
+        penalty : str/None, optional
+            The regularizion technique that is used. The available regularizors are: 
+            {L1, L2, Elastic}. If set to None, no regularization is applied. The default is None.
+        l : float, optional
+            Constant that is multiplied with the regularization term. The default is 0.01.
+        l0 : float, optional
+            Mixing parameter for the elastic regularizer. The elastic regularizer is a combination 
+            of L1 and L2 regularization. L1 regularization is weighed by l0 and L2 regularization 
+            by 1-l0. Values must be in the range [0,1). The default is 0.5.
+
+        '''
         self.learning_rate = learning_rate
         self.num_iters = num_iters
         self.verbose = verbose
@@ -213,16 +288,63 @@ class GDClassifier():
             print("Invalid regularizer. Please select one of {L1, L2, Elastic} or None.")
         
     def fit(self, x, y) -> None:
-        w, b, J_history, w_history, b_history = self.gradient_descent(x, y, self.learning_rate, self.num_iters, self.verbose)
+        '''
+        Finds weights and bias assign the correct class to the training data.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Training data.
+        y : ndarray, shape: (number of samples, number of classes)
+            Traget classes.
+
+        '''
+        w, b, J_history, w_history, b_history = self.gradient_descent(x, y)
         
         self.params = (w, b)
         self.history = (J_history, w_history, b_history)
         
     def predict(self, x):
+        '''
+        Predict the class of the elements in x.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Input data.
+
+        Returns
+        -------
+        y_pred : ndarray, shape: (number of samples, number of classes)
+            Predicted target class of each element in x.
+
+        '''
         y_pred = np.array([np.random.multinomial(1,val) for val in self.activation.value(np.matmul(x,self.params[0]) + self.params[1])])
         return y_pred
             
     def compute_gradients(self, x, y, w, b):
+        '''
+        Get the gradient of the loss function with respect to the weights and the bias.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Input data.
+        y : ndarray, shape: (number of samples, number of classes)
+            Traget values.
+        w : ndarray, shape: (number of features, number of classes)
+            Weights at which the gradient is calculated.
+        b : ndarray, shape: (1, number of classes)
+            Bias at which the gradient is calculated.
+
+        Returns
+        -------
+        dj_dw : ndarray, shape: (number of features, number of classes)
+            Gradient of the loss function with respect to the weights.
+        dj_db : ndarray, shape: (1, number of classes)
+            Gradient of the loss function with respect to the bias.
+
+        '''
         num_ex = x.shape[0]
         f_wb = self.activation.value(np.matmul(x,w) + b)
         #dL_dy = self.cost_function.derivative(y, np.array([np.random.multinomial(1,val) for val in f_wb]))
@@ -234,7 +356,31 @@ class GDClassifier():
 
         return dj_dw, dj_db
     
-    def gradient_descent(self, x, y, learning_rate=1e-2, num_iters=1000, verbose=False):
+    def gradient_descent(self, x, y):
+        '''
+        Get weights and bias to fit the input to the target classes using gradient descent.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, number of features)
+            Input data.
+        y : ndarray, shape: (number of samples, number of classes)
+            Traget values.
+
+        Returns
+        -------
+        w : ndarray, shape: (number of features, number of classes)
+            Weights of the model.
+        b : ndarray, shape: (1, number of classes)
+            Bias of the model.
+        J_history : list
+            List containing the loss at each iteration.
+        w_history : list
+            List containing the weights at each iteration.
+        b_history : list
+            List containing the bias at each iteration.
+
+        '''
         num_ex = x.shape[0]
         num_classes = y.shape[1]
         
@@ -260,14 +406,14 @@ class GDClassifier():
             x_batches = [x[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
             y_batches = [y[i:i+self.batch_size] for i in range(0, num_ex, self.batch_size)]
         
-        for i in range(num_iters):
+        for i in range(self.num_iters):
             for curr_x, curr_y in zip(x_batches,y_batches):
                 # Calculate the gradient and update the parameters
                 dj_dw, dj_db = self.compute_gradients(curr_x, curr_y, w, b )  
         
                 # Update Parameters using w, b, learning_rate and gradient
-                w = w - learning_rate * dj_dw               
-                b = b - learning_rate * dj_db
+                w = w - self.learning_rate * dj_dw               
+                b = b - self.learning_rate * dj_db
             
             w_history.append(w)
             b_history.append(b)
@@ -280,9 +426,9 @@ class GDClassifier():
                 cost =  self.cost_function.value(y, y_pred) + self.reg.value(w)
                 J_history.append(cost)
     
-            if verbose == True:
+            if self.verbose == True:
                 # Print cost every at intervals 10 times or as many iterations if < 10
-                if i% math.ceil(num_iters/10) == 0:
+                if i% math.ceil(self.num_iters/10) == 0:
                     print(f"Iteration {i:4}: Cost {float(J_history[-1]):8.4f}")
                                         
         return w, b, J_history, w_history, b_history #return w and J,w history for graphing
