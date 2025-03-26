@@ -72,6 +72,8 @@ class Sequential():
                 self.bias_layers.append(False)
                 self.param_pos.append(-1)
                 
+        return
+                
     def initialize_parameters(self) -> None:
         w_temp = []
         b_temp = []
@@ -130,21 +132,6 @@ class NeuralNetwork():
                 
         return A, caches
     
-    def Linear_backward_step(self, dA, layer_pos, cache):
-        prev_A, curr_w, curr_b, curr_Z = cache
-        d_activation = self.sequential[layer_pos].derivative(prev_A)
-        curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
-        curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
-        curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
-        prev_dA = np.matmul(curr_dA, curr_w.T)
-        return prev_dA, curr_dw, curr_db
-    
-    def Dropout_backward_step(self, dA, layer_pos, cache):
-        prev_A, curr_mask = cache
-        d_layer = self.sequential[layer_pos].derivative(curr_mask)
-        prev_dA = d_layer * dA
-        return prev_dA
-    
     def backward(self, dA, caches):
         grads = []
         
@@ -154,11 +141,11 @@ class NeuralNetwork():
             curr_cache = caches[i]
             
             if curr_layer_type == "OrionML.Layer.Linear":
-                dA, curr_dw, curr_db = self.Linear_backward_step(curr_dA, i, curr_cache)
+                dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache)
                 grads = [[dA, curr_dw, curr_db]] + grads
                 
             elif curr_layer_type == "OrionML.Layer.Dropout":
-                dA = self.Dropout_backward_step(curr_dA, i, curr_cache)
+                dA = self.sequential[i].backward(curr_dA, curr_cache)
         
         return grads
     

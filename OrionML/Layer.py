@@ -46,7 +46,7 @@ class Linear():
         return "OrionML.Layer.Linear"
         
     def description(self):
-        return f"OrionML.Layer.Linear  (shape:({self.dim1, self.dim2}), activation: {self.activaiton})"
+        return f"OrionML.Layer.Linear  (shape:({self.dim1, self.dim2}), activation: {self.activation})"
     
     def get_activation_function(self):
         '''
@@ -76,20 +76,30 @@ class Linear():
         self.w = w_new
         if self.bias==True: self.b = b_new
         
-    def value(self, x):
+    def value(self, x, training=None):
         z = np.matmul(x, self.w) + self.b
         return self.activation_function.value(z), z
     
-    def derivative(self, x):
+    def derivative(self, x, training=None):
         z = np.matmul(x, self.w) + self.b
         d_activ = self.activation_function.derivative(z)
         return d_activ
     
-    def forward(self, prev_A, training=False):
+    def forward(self, prev_A, training=None):
         curr_A, Z = self.value(prev_A)
         cache = (prev_A, self.w, self.b, Z)
         
         return curr_A, cache
+    
+    def backward(self, dA, cache, training=None):
+        prev_A, curr_w, curr_b, curr_Z = cache
+        d_activation = self.derivative(prev_A)
+        curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
+        curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
+        curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
+        prev_dA = np.matmul(curr_dA, curr_w.T)
+        
+        return prev_dA, curr_dw, curr_db
         
        
 class Dropout():
@@ -143,7 +153,8 @@ class Dropout():
             
         return res, mask
     
-    def derivative(self, mask):
+    def derivative(self, mask, training=False):
+        if training==False: return np.ones(mask.shape)
         return mask
     
     def forward(self, prev_A, training=False):
@@ -151,6 +162,12 @@ class Dropout():
         cache = (prev_A, curr_mask)
         
         return curr_A, cache
+    
+    def backward(self, dA, cache, training=False):
+        prev_A, curr_mask = cache
+        d_layer = self.derivative(curr_mask, training=training)
+        prev_dA = d_layer * dA
+        return prev_dA
 
             
 
