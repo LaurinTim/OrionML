@@ -31,7 +31,7 @@ class Sequential():
         self.output_dim = trainable_layers_dimensions[-1][1]
         
     def __str__(self):
-        return "Neural Network with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.layers)
+        return "Sequential with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.layers)
     
     def __repr__(self):
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.layers))
@@ -46,6 +46,13 @@ class Sequential():
             x_next = layer.value(x_curr)
         
         return x_next
+    
+    def __getitem__(self, index):
+        return self.layers[index]
+    
+    def __iter__(self):
+        for layer in self.layers:
+            yield layer
     
     def __get_layer_parameters(self) -> None:
         for i in range(self.num_layers):
@@ -64,23 +71,30 @@ class Sequential():
                 
                 self.bias_layers.append(False)
                 self.param_pos.append(-1)
-
+                
+    def initialize_parameters(self) -> None:
+        w_temp = []
+        b_temp = []
+        
+        for i in range(self.num_layers):
+            if self.trainable_layers[i]==True:
+                w_temp.append(np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1/np.sqrt(self.layer_dimensions[i][0]))
+                if self.bias_layers[i]==True:
+                    b_temp.append(np.random.rand(1, self.layer_dimensions[i][1]) * 1/np.sqrt(self.layer_dimensions[i][0]))
+                    self.layers[i].update_parameters(w_temp[-1], b_temp[-1])
+                else:
+                    b_temp.append(np.array([[0]]))
+                    self.layers[i].update_parameters(w_temp[-1])
+                    
+        return w_temp, b_temp
+        
 
 class NeuralNetwork():
-    def __init__(self, layers, learning_rate=1e-2):
-        self.layers = layers
+    def __init__(self, sequential, learning_rate=1e-2):
+        self.sequential = sequential
         self.learning_rate = learning_rate
         
-        self.num_layers = len(layers)
-        self.layer_dimensions = []
-        self.trainable_layers = []
-        self.bias_layers = []
-        self.param_pos = []
-        self.__get_layer_parameters()
-        
-        self.w = []
-        self.b = []
-        self.__initialize_parameters()
+        self.w, self.b = self.sequential.initialize_parameters()
         
         self.dw = [0]*len(self.w)
         self.db = [0]*len(self.b)
@@ -88,49 +102,25 @@ class NeuralNetwork():
         self.caches = []
                 
     def __str__(self):
-        return "Neural Network with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.layers)
+        return "Neural Network with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.sequential)
     
     def __repr__(self):
-        return "NeuralNetwork: {}".format("-".join(str(l) for l in self.layers))
-        
-    def __get_layer_parameters(self) -> None:
-        for i in range(self.num_layers):
-            layer = self.layers[i]
-            self.trainable_layers.append(layer.trainable)
-            if layer.trainable==True:
-                self.layer_dimensions.append(layer.dimension)
-                self.bias_layers.append(layer.bias)
-                self.param_pos.append(i)
-            else:
-                self.layer_dimensions.append(self.layer_dimensions[-1])
-                self.bias_layers.append(False)
-                self.param_pos.append(-1)
-        
-    def __initialize_parameters(self) -> None:
-        for i in range(self.num_layers):
-            if self.trainable_layers[i]==True:
-                self.w.append(np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1/np.sqrt(self.layer_dimensions[i][0]))
-                if self.bias_layers[i]==True:
-                    self.b.append(np.random.rand(1, self.layer_dimensions[i][1]) * 1/np.sqrt(self.layer_dimensions[i][0]))
-                    self.layers[i].update_parameters(self.w[-1], self.b[-1])
-                else:
-                    self.b.append(np.array([[0]]))
-                    self.layers[i].update_parameters(self.w[-1])
+        return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
                     
     def Linear_forward_step(self, prev_A, layer_pos):
-        curr_A, Z = self.layers[layer_pos].value(prev_A)
-        cache = (prev_A, self.layers[layer_pos].w, self.layers[layer_pos].b, Z)
+        curr_A, Z = self.sequential[layer_pos].value(prev_A)
+        cache = (prev_A, self.sequential[layer_pos].w, self.sequential[layer_pos].b, Z)
         
         return curr_A, cache
     
     def Dropout_forward_step(self, prev_A, layer_pos):
-        curr_A, curr_mask = self.layers[layer_pos].value(prev_A, training=True)
+        curr_A, curr_mask = self.sequential[layer_pos].value(prev_A, training=True)
         cache = (prev_A, curr_mask)
         
         return curr_A, cache
                                         
     def forward_step(self, prev_A, layer_pos):
-        curr_layer_type = self.layers[layer_pos].type()
+        curr_layer_type = self.sequential[layer_pos].type()
         
         if curr_layer_type == "OrionML.Layer.Linear":
             curr_A, cache = self.Linear_forward_step(prev_A, layer_pos)
@@ -145,7 +135,7 @@ class NeuralNetwork():
         caches = []
         A = x
         
-        for i in range(self.num_layers):
+        for i in range(self.sequential.num_layers):
             prev_A = A
             A, cache = self.forward_step(prev_A, i)
             caches.append(cache)
@@ -154,7 +144,7 @@ class NeuralNetwork():
     
     def Linear_backward_step(self, dA, layer_pos, cache):
         prev_A, curr_w, curr_b, curr_Z = cache
-        d_activation = self.layers[layer_pos].derivative(prev_A)
+        d_activation = self.sequential[layer_pos].derivative(prev_A)
         curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
         curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
@@ -163,16 +153,16 @@ class NeuralNetwork():
     
     def Dropout_backward_step(self, dA, layer_pos, cache):
         prev_A, curr_mask = cache
-        d_layer = self.layers[layer_pos].derivative(curr_mask)
+        d_layer = self.sequential[layer_pos].derivative(curr_mask)
         prev_dA = d_layer * dA
         return prev_dA
     
     def backward(self, dA, caches):
         grads = []
         
-        for i in reversed(range(self.num_layers)):
+        for i in reversed(range(self.sequential.num_layers)):
             curr_dA = dA
-            curr_layer_type = self.layers[i].type()
+            curr_layer_type = self.sequential[i].type()
             curr_cache = caches[i]
             
             if curr_layer_type == "OrionML.Layer.Linear":
@@ -187,7 +177,7 @@ class NeuralNetwork():
     def update_parameters(self, grads):
         grad_pos = 0
         
-        for layer in self.layers:
+        for layer in self.sequential:
             if layer.trainable==True:
                 layer.w -= self.learning_rate * grads[grad_pos][1]
                 layer.b -= self.learning_rate * grads[grad_pos][2]
@@ -243,7 +233,7 @@ if __name__ == "__main__":
                   [1,0,0], [0,1,0], [0,0,1],
                   [1,0,0], [0,1,0], [0,0,1]])
     
-    l = [Layer.Linear(6, 12, "linear"), Layer.Dropout(0.2), Layer.Linear(12, 3, "softmax")]
+    l = Sequential([Layer.Linear(6, 12, "linear"), Layer.Dropout(0.2), Layer.Linear(12, 3, "softmax")])
     n = NeuralNetwork(l, learning_rate=0.1)
 
     n.fit(x, y, epochs=1000, batch_size=None)
