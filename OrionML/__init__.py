@@ -13,6 +13,59 @@ import activation
 import regularizer
 import Layer
 
+
+class Sequential():
+    def __init__(self, layers):
+        self.layers = layers
+        self.num_layers = len(layers)
+        self.layer_dimensions = []
+        self.trainable_layers = []
+        self.bias_layers = []
+        self.param_pos = []
+        self.activations = []
+        self.__get_layer_parameters()
+        
+        trainable_layers_dimensions = [val for val,bal in zip(self.layer_dimensions, self.trainable_layers) if bal]
+        
+        self.feature_num = trainable_layers_dimensions[0][0]
+        self.output_dim = trainable_layers_dimensions[-1][1]
+        
+    def __str__(self):
+        return "Neural Network with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.layers)
+    
+    def __repr__(self):
+        return "NeuralNetwork: {}".format("-".join(str(l) for l in self.layers))
+    
+    def __call__(self, x_in):
+        assert x_in.shape[1] == self.feature_num, "Number of features in the input does not match with the model."
+        
+        x_next = x_in
+        
+        for layer in self.layers:
+            x_curr = x_next
+            x_next = layer.value(x_curr)
+        
+        return x_next
+    
+    def __get_layer_parameters(self) -> None:
+        for i in range(self.num_layers):
+            layer = self.layers[i]
+            self.trainable_layers.append(layer.trainable)
+            if layer.trainable==True:
+                self.layer_dimensions.append(layer.dimension)
+                self.bias_layers.append(layer.bias)
+                self.param_pos.append(i)
+                self.activations.append(layer.activation)
+            else:
+                if i>0:
+                    self.layer_dimensions.append(self.layer_dimensions[-1])
+                else:
+                    self.layer_dimensions.append(np.array([0,0]))
+                
+                self.bias_layers.append(False)
+                self.param_pos.append(-1)
+
+
 class NeuralNetwork():
     def __init__(self, layers, learning_rate=1e-2):
         self.layers = layers
@@ -71,7 +124,7 @@ class NeuralNetwork():
         return curr_A, cache
     
     def Dropout_forward_step(self, prev_A, layer_pos):
-        curr_A, curr_mask = self.layers[layer_pos].value(prev_A)
+        curr_A, curr_mask = self.layers[layer_pos].value(prev_A, training=True)
         cache = (prev_A, curr_mask)
         
         return curr_A, cache
@@ -144,42 +197,78 @@ class NeuralNetwork():
                 
         return
     
-    def fit(self, x, y, epochs):
+    def fit(self, x, y, epochs, batch_size = None):
+        
+        num_samples = x.shape[0]
+        
+        if batch_size==None:
+            x_batches = [x]
+            y_batches = [y]
+        else:
+            x_batches = [x[i:i+batch_size] for i in range(0, num_samples, batch_size)]
+            y_batches = [y[i:i+batch_size] for i in range(0, num_samples, batch_size)]
         
         for i in range(epochs):
-            A, caches = self.forward(x)
-            AL = Loss.mse().value(y, A)
-            dAL = Loss.mse().derivative(y, A)
-            grads = self.backward(dAL, caches)
-            self.update_parameters(grads)
+            for curr_x, curr_y in zip(x_batches, y_batches):
+                A, caches = self.forward(curr_x)
+                #AL = Loss.mse().value(curr_y, A)
+                #dAL = Loss.mse().derivative(curr_y, A)
+                AL = Loss.hinge().value(curr_y, A)
+                dAL = Loss.hinge().derivative(curr_y, A)
+                grads = self.backward(dAL, caches)
+                self.update_parameters(grads)
             if i% math.ceil(epochs/10) == 0:
                 print(f"Iteration {i:4}: Cost {AL:8.2f}, params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
         
         return
+   
+# %%
+
+if __name__ == "__main__":
     
+    l = Sequential([Layer.Linear(6, 12, "linear"), Layer.Dropout(0.2), Layer.Linear(12, 3, "softmax")])
+   
 # %%
 
 if __name__ == "__main__":
 
     np.random.seed(0)
     
-    x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
-    y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
+    x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], 
+                  [2,0,0,0,0,0], [0,2,0,0,0,0], [0,0,2,0,0,0], [0,0,0,2,0,0], [0,0,0,0,2,0], [0,0,0,0,0,2],
+                  [1,1,0,0,0,0], [0,0,1,1,0,0], [0,0,0,0,1,1],
+                  [1,4,0,0,0,0], [0,0,1,3,0,0], [0,0,0,0,6,1]])
+    y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1],
+                  [1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1],
+                  [1,0,0], [0,1,0], [0,0,1],
+                  [1,0,0], [0,1,0], [0,0,1]])
+    
+    l = [Layer.Linear(6, 12, "linear"), Layer.Dropout(0.2), Layer.Linear(12, 3, "softmax")]
+    n = NeuralNetwork(l, learning_rate=0.1)
+
+    n.fit(x, y, epochs=1000, batch_size=None)
+    
+    w = n.w[0]
+    b = n.b[0]
+   
+# %%
+
+if __name__ == "__main__":
+
+    np.random.seed(0)
+    
+    x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], 
+                  [2,0,0,0,0,0], [0,2,0,0,0,0], [0,0,2,0,0,0], [0,0,0,2,0,0], [0,0,0,0,2,0], [0,0,0,0,0,2],
+                  [1,1,0,0,0,0], [0,0,1,1,0,0], [0,0,0,0,1,1],
+                  [1,4,0,0,0,0], [0,0,1,3,0,0], [0,0,0,0,6,1]])
+    y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1],
+                  [2,0,0], [2,0,0], [0,2,0], [0,2,0], [0,0,2], [0,0,2],
+                  [2,0,0], [0,2,0], [0,0,2],
+                  [5,0,0], [0,4,0], [0,0,7]])
     
     l = [Layer.Linear(6, 3, "linear")]
-    n = NeuralNetwork(l, learning_rate=0.2)
-    n.fit(x, y, epochs=100)
-    
-    w = n.w
-    b = n.b
-    
-    l = [Layer.Linear(1, 1, "linear")]
-    n = NeuralNetwork(l, learning_rate=0.1)
-    
-    x = np.array([[0],[2],[4]])
-    y = np.array([[1],[5],[9]])
-    
-    n.fit(x, y, epochs = 100)
+    n = NeuralNetwork(l, learning_rate=1)
+    n.fit(x, y, epochs=50, batch_size=6)
     
     w = n.w
     b = n.b

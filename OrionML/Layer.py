@@ -9,7 +9,7 @@ import activation as activ
 
 class Linear():
     
-    def __init__(self, dim1, dim2, activation, bias=True):
+    def __init__(self, dim1, dim2, activation, bias=True, alpha=0.1):
         '''
         Linear layer.
 
@@ -24,11 +24,15 @@ class Linear():
             {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.
         bias : TYPE, optional
             Whether or not the layer contains a bias. The default is True.
+        alpha : float
+            Only used if the activation is "leakyrelu". Slope of the leaky ReLU when z<0. 
+            The default is 0.1.
 
         '''
         self.dim1 = dim1
         self.dim2 = dim2
         self.bias = bias
+        self.alpha = alpha
         self.w = np.zeros((dim1, dim2))
         self.b = np.zeros((1, dim2))
         
@@ -56,7 +60,7 @@ class Linear():
         if self.activation == "linear": return activ.linear()
         elif self.activation == "relu": return activ.relu()
         elif self.activation == "elu": return activ.elu()
-        elif self.activation == "leakyrelu": return activ.leakyrelu()
+        elif self.activation == "leakyrelu": return activ.leakyrelu(alpha=self.alpha)
         elif self.activation == "softplus": return activ.softplus()
         elif self.activation == "sigmoid": return activ.sigmoid()
         elif self.activation == "tanh": return activ.tanh()
@@ -108,7 +112,7 @@ class Dropout():
     def description(self):
         return f"OrionML.Layer.Dropout (dropout probability: {self.dropout_probability})"
         
-    def value(self, weights):
+    def value(self, activation_output, training=False):
         '''
         Set each element in wa with probability dropout_probability to 0.
         
@@ -123,10 +127,12 @@ class Dropout():
             Copy of wa but each element set to 0 with probability dropout_probability.
 
         '''
-        mask = np.random.rand(weights.shape[0], weights.shape[1]) > self.dropout_probability
-        res = mask*weights
+        if training==False:
+            return activation_output
+        mask = np.random.rand(activation_output.shape[0], activation_output.shape[1]) > self.dropout_probability
+        res = mask*activation_output
         if self.scale==True:
-            res = res * 1/self.dropout_probability
+            res = res * 1/(1-self.dropout_probability)
         return res, mask
     
     def derivative(self, mask):
