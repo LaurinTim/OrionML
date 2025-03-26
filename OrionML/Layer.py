@@ -43,9 +43,26 @@ class Linear():
         self.dimension = np.array([dim1, dim2])
         
     def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to linear Layers.
+
+        '''
         return "OrionML.Layer.Linear"
         
     def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the linear Layer with information about the input and output 
+            dimension and the activation.
+
+        '''
         return f"OrionML.Layer.Linear  (shape:({self.dim1, self.dim2}), activation: {self.activation})"
     
     def get_activation_function(self):
@@ -54,7 +71,8 @@ class Linear():
 
         Returns
         -------
-        Correct activation function class from OrionMl.activation.
+        Correct activation function class from OrionMl.activation. If the value of self.activation 
+        is not valid, an error is printed and a linear activation is used.
 
         '''
         if self.activation == "linear": return activ.linear()
@@ -66,32 +84,138 @@ class Linear():
         elif self.activation == "tanh": return activ.tanh()
         elif self.activation == "softmax": return activ.softmax()
         else:
-            print("Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.")
+            print("ERROR: Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.")
             return activ.linear()
             
     def update_parameters(self, w_new, b_new=None):
-        if self.bias==True and b_new is None:
-            print("ERROR: Expected a bias when updating the parameters.")
+        '''
+        Updade the weights and bias of the current Layer.
+
+        Parameters
+        ----------
+        w_new : ndarray, shape: (self.dim1, self.dim2)
+            New weights to replace the current ones of the linear Layer.
+        b_new : ndarray/None, optional, shape: (1, self.dim2)
+            New bias to replace the current one of the linear Layer. If self.bias is set to False 
+            this must be None, otherwise a ndarray. The default is None.
+
+        '''
+        assert not (self.bias==True and b_new is None), "ERROR: Expected a bias when updating the parameters."
+        assert not (self.bias == False and not b_new is None), "ERROR: This layer has no bias but a new bias was passed along."
         
         self.w = w_new
         if self.bias==True: self.b = b_new
         
+        return
+        
     def value(self, x, training=None):
+        '''
+        Pass an input to the linear Layer to get the output after the weights, bias and 
+        activation function is applied.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, self.dim1)
+            Input data.
+        training : bool/None, optional
+            Whether the layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        ndarray, shape: (number of samples, self.dim2)
+            Array after the weights, bias and activation function of the linear Layer are 
+            applied to the input data.
+        z : ndarray, shape: (number of samples, self.dim2)
+            Array after the weights and bias of the linear Layer are applied to the input data.
+
+        '''
         z = np.matmul(x, self.w) + self.b
         return self.activation_function.value(z), z
     
     def derivative(self, x, training=None):
+        '''
+        Get the derivative of the activation function for the values after applying the 
+        weights and bias of the linear Layer to the input data.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, self.dim1)
+            Input data.
+        training : bool/None, optional
+            Whether the layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        d_activ : ndarray, shape: (input size, output size, output size)
+            Derivative of the activation function for the values after applying the 
+            weights and bias of the linear Layer to the input data.
+
+        '''
         z = np.matmul(x, self.w) + self.b
         d_activ = self.activation_function.derivative(z)
         return d_activ
     
     def forward(self, prev_A, training=None):
+        '''
+        Forward step of a linear Layer in a Neural Network.
+
+        Parameters
+        ----------
+        prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
+            Data before the current linear Layer is applied.
+        training : bool/None, optional
+            Whether the layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        curr_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim2)
+            Data after the current linear Layer is applied.
+        cache : tuple
+            Cache containing information needed in the backwards propagation. Its contents are:
+                prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
+                    Input for the current forward step.
+                self.w : ndarray, shape: (self.dim1, self.dim2)
+                    Weights of the current linear Layer.
+                self.b : ndarray, shape: (1, self.dim2)
+                    Bias of the current linear Layer. If the current Layer has no bias, an array 
+                    with shape contianing 0's is returned.
+                Z : ndarray, shape: (number of samples, self.dim2)
+                    Array after the weights and bias of the linear Layer are applied to the input data.
+
+        '''
         curr_A, Z = self.value(prev_A)
         cache = (prev_A, self.w, self.b, Z)
         
         return curr_A, cache
     
     def backward(self, dA, cache, training=None):
+        '''
+        Backward step of a linear Layer in a Neural Network.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: (number of samples passed to the Neural Network, self.dim2)
+            Derivative of all Layers in the Neural Network starting after the current Layer.
+        cache : tuple
+            cache containing information from the forward propagation of the current linear Layer. 
+            For its contens, refer to the return of self.forward.
+        training : bool/None, optional
+            Whether the layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        prev_dA : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
+            Derivative of all Layers in the Neural Network starting from the current Layer.
+        curr_dw : ndarray, shape: (self.dim1, self.dim2)
+            Derivative of the weights of the current layer given dA and the values in the cache.
+        curr_db : ndarray, shape: (1, self.dim2)
+            Derivative of the bias of the current layer given dA and the values in the cache.
+
+        '''
         prev_A, curr_w, curr_b, curr_Z = cache
         d_activation = self.derivative(prev_A)
         curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
@@ -123,24 +247,46 @@ class Dropout():
         self.trainable = False
         
     def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to dropout Layers.
+
+        '''
         return "OrionML.Layer.Dropout"
         
     def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the dropout Layer with information about dropout probability.
+
+        '''
         return f"OrionML.Layer.Dropout (dropout probability: {self.dropout_probability})"
         
     def value(self, activation_output, training=False):
         '''
-        Set each element in wa with probability dropout_probability to 0.
+        Set each element in activation_output with probability dropout_probability to 0 if training is True.
         
         Parameters
         ----------
-        weights : ndarray, shape: (input size, output size)
-            Activated weights to which dropout should be applied.
+        activation_output : ndarray, shape: (input size, output size)
+            Output after an activation function to pass through the dropout Layer.
+        training : bool, optional
+            Whether the layer is currently in training or not. If training is False, no dropout 
+            is applied. The default is False.
 
         Returns
         -------
         res : ndarray, shape: (input size, output size)
-            Copy of wa but each element set to 0 with probability dropout_probability.
+            Copy of activation_output but each element set to 0 with probability dropout_probability.
+        mask : ndarray, shape: (input size, output size)
+            Is only returned if training is set to True. An array that is 0 at every element in 
+            activation_output that was set to 0, otherwise 1.
 
         '''
         if training==False:
@@ -154,16 +300,74 @@ class Dropout():
         return res, mask
     
     def derivative(self, mask, training=False):
+        '''
+        Get the derivative of the dropout layer.
+
+        Parameters
+        ----------
+        mask : ndarray, shape: (input size, output size)
+            Mask from the dropout Layer when it was applied
+        training : bool, optional
+            Whether the layer is currently in training or not. If training is False, no dropout 
+            is applied and the derivative is the same as for linear activation. The default is False.
+
+        Returns
+        -------
+        ndarray, shape: (input size, output size)
+            If training is False, return an array filled with ones. Otherwise return mask.
+
+        '''
         if training==False: return np.ones(mask.shape)
         return mask
     
     def forward(self, prev_A, training=False):
+        '''
+        Forward step of a dropout Layer in a Neural Network.
+
+        Parameters
+        ----------
+        prev_A : ndarray, shape: (input size, output size)
+            Data before the current dropout Layer is applied.
+        training : bool, optional
+            Whether the layer is currently in training or not. The default is False.
+
+        Returns
+        -------
+        curr_A : ndarray, shape: (input size, output size)
+            Data after the current dropout Layer is applied.
+        cache : tuple
+            Cache containing information needed in the backwards propagation. Its contents are:
+                prev_A : ndarray, shape: (input size, output size)
+                    Input for the current forward step.
+                curr_mask : ndarray, shape: (input size, output size)
+                    Mask used in the dropout Layer.
+                
+        '''
         curr_A, curr_mask = self.value(prev_A, training=training)
         cache = (prev_A, curr_mask)
         
         return curr_A, cache
     
     def backward(self, dA, cache, training=False):
+        '''
+        Backward step of a dropout Layer in a Neural Network.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: (input size, output size)
+            Derivative of all Layers in the Neural Network starting after the current Layer.
+        cache : tuple
+            cache containing information from the forward propagation of the current dropout Layer. 
+            For its contens, refer to the return of self.forward.
+        training : bool, optional
+            Whether the layer is currently in training or not. The default is False.
+
+        Returns
+        -------
+        prev_dA : ndarray, shape: (input size, output size)
+            Derivative of all Layers in the Neural Network starting from the current Layer.
+
+        '''
         prev_A, curr_mask = cache
         d_layer = self.derivative(curr_mask, training=training)
         prev_dA = d_layer * dA
