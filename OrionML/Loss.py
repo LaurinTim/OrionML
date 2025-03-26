@@ -187,6 +187,9 @@ class hinge():
         l = np.sum(np.clip(1 - yc*y_pred, a_min=0, a_max=np.inf))
         return l / np.size(yc)
     
+        #l = np.sum(np.clip(1 - np.sum(y*y_pred, axis=1), a_min=0, a_max=np.inf))
+        #return l / y.shape[0]
+    
     def derivative(self, y, y_pred):
         '''
     
@@ -207,6 +210,9 @@ class hinge():
         yc[yc==0] = -1
         l = np.array(np.clip(1-np.clip(yc*y_pred, a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool)
         return -1*l*yc
+    
+        #l = np.array(np.clip(1-np.clip(np.sum(y*y_pred, axis=1), a_min=0, a_max=np.inf), a_min=0, a_max=np.inf), dtype=bool).reshape(-1,1)
+        #return -1*l*y
     
 class squared_hinge():
     def __init__(self):

@@ -159,30 +159,30 @@ class NeuralNetwork():
     
 # %%
 
-np.random.seed(0)
+if __name__ == "__main__":
 
-x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
-y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
-
-l = [Layer.Linear(6, 3, "linear")]
-n = NeuralNetwork(l, learning_rate=0.2)
-n.fit(x, y, epochs=100)
-
-w = n.w
-b = n.b
-
-# %%
-
-l = [Layer.Linear(1, 1, "linear")]
-n = NeuralNetwork(l, learning_rate=0.1)
-
-x = np.array([[0],[2],[4]])
-y = np.array([[1],[5],[9]])
-
-n.fit(x, y, epochs = 100)
-
-w = n.w
-b = n.b
+    np.random.seed(0)
+    
+    x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
+    y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
+    
+    l = [Layer.Linear(6, 3, "linear")]
+    n = NeuralNetwork(l, learning_rate=0.2)
+    n.fit(x, y, epochs=100)
+    
+    w = n.w
+    b = n.b
+    
+    l = [Layer.Linear(1, 1, "linear")]
+    n = NeuralNetwork(l, learning_rate=0.1)
+    
+    x = np.array([[0],[2],[4]])
+    y = np.array([[1],[5],[9]])
+    
+    n.fit(x, y, epochs = 100)
+    
+    w = n.w
+    b = n.b
 
 
 

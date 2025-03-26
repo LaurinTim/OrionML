@@ -350,8 +350,6 @@ class GDClassifier():
         #dL_dy = self.cost_function.derivative(y, np.array([np.random.multinomial(1,val) for val in f_wb]))
         dL_dy = self.cost_function.derivative(y, f_wb)
         dz = np.einsum('ijk,ik->ij', self.activation.derivative(np.matmul(x, w) + b), dL_dy)
-        print(self.activation.derivative(np.matmul(x, w) + b).shape)
-        print((np.matmul(x, w) + b).shape)
         
         dj_dw = 1/num_ex * np.matmul(x.T, dz) + self.reg.derivative(w)
         dj_db = 1/num_ex * np.sum(dz, axis=0, keepdims=True)
