@@ -84,7 +84,13 @@ class Linear():
         z = np.matmul(x, self.w) + self.b
         d_activ = self.activation_function.derivative(z)
         return d_activ
-     
+    
+    def forward(self, prev_A, training=False):
+        curr_A, Z = self.value(prev_A)
+        cache = (prev_A, self.w, self.b, Z)
+        
+        return curr_A, cache
+        
        
 class Dropout():
     def __init__(self, dropout_probability=0.3, scale=True):
@@ -129,14 +135,22 @@ class Dropout():
         '''
         if training==False:
             return activation_output
+        
         mask = np.random.rand(activation_output.shape[0], activation_output.shape[1]) > self.dropout_probability
         res = mask*activation_output
         if self.scale==True:
             res = res * 1/(1-self.dropout_probability)
+            
         return res, mask
     
     def derivative(self, mask):
         return mask
+    
+    def forward(self, prev_A, training=False):
+        curr_A, curr_mask = self.value(prev_A, training=training)
+        cache = (prev_A, curr_mask)
+        
+        return curr_A, cache
 
             
 

@@ -106,26 +106,14 @@ class NeuralNetwork():
     
     def __repr__(self):
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
-                    
-    def Linear_forward_step(self, prev_A, layer_pos):
-        curr_A, Z = self.sequential[layer_pos].value(prev_A)
-        cache = (prev_A, self.sequential[layer_pos].w, self.sequential[layer_pos].b, Z)
-        
-        return curr_A, cache
-    
-    def Dropout_forward_step(self, prev_A, layer_pos):
-        curr_A, curr_mask = self.sequential[layer_pos].value(prev_A, training=True)
-        cache = (prev_A, curr_mask)
-        
-        return curr_A, cache
                                         
     def forward_step(self, prev_A, layer_pos):
         curr_layer_type = self.sequential[layer_pos].type()
         
         if curr_layer_type == "OrionML.Layer.Linear":
-            curr_A, cache = self.Linear_forward_step(prev_A, layer_pos)
+            curr_A, cache = self.sequential[layer_pos].forward(prev_A, training=True)
         elif curr_layer_type == "OrionML.Layer.Dropout":
-            curr_A, cache = self.Dropout_forward_step(prev_A, layer_pos)
+            curr_A, cache = self.sequential[layer_pos].forward(prev_A, training=True)
         else:
             print("ERROR: Layer of unknown type in layers")
         
@@ -211,12 +199,6 @@ class NeuralNetwork():
                 print(f"Iteration {i:4}: Cost {AL:8.2f}, params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
         
         return
-   
-# %%
-
-if __name__ == "__main__":
-    
-    l = Sequential([Layer.Linear(6, 12, "linear"), Layer.Dropout(0.2), Layer.Linear(12, 3, "softmax")])
    
 # %%
 
