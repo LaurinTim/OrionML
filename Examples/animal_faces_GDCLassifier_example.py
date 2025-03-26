@@ -265,13 +265,22 @@ y_testo = np.array([one_hot_map.get(val) for val in y_test])
 # %%
 np.random.seed(2)
 
-gd = orn.method.GDClassifier(loss_function="hinge", learning_rate=1, num_iters=500, verbose=True, batch_size=None, penalty=None, l=0.001, l0=0.5)
+gd = orn.method.GDClassifier(loss_function="hinge", learning_rate=1, num_iters=600, verbose=True, batch_size=None, penalty=None, l=0.001, l0=0.5)
 
 gd.fit(X_train_prepared, y_traino)
 
 y_predo = gd.predict(X_test_prepared)
 
 print('Percentage correct: ', 100*np.sum([(val==bal).all() for val,bal in zip(y_predo,y_testo)])/len(y_testo))
+
+# %%
+
+print(X_train_prepared.shape)
+print(y_traino.shape)
+
+# %%
+
+l = [orn.Layer.Linear(3240, 12, "linear")]
 
 # %%
 
