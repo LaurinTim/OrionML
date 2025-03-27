@@ -359,6 +359,64 @@ class L2loss():
         '''
         diff = y-y_pred
         return -2*(diff) * np.array(np.abs(diff**2)>self.epsilon, dtype=float)
+    
+class huber():
+    def __init__(self, delta=1):
+        '''
+
+        Parameters
+        ----------
+        delta : float
+            Value of delta for the Huber loss.
+
+        '''
+        self.delta=delta
+    
+    def value(self, y, y_pred):
+        '''
+    
+        Parameters
+        ----------
+        y : ndarray, shape: (number of samples, number of outputs)
+            Correct labels.
+        y_pred : ndarray, shape: (number of samples, number of outputs)
+            Predicted labels.
+    
+        Returns
+        -------
+        float
+            Huber Loss of the correct and predicted labels.
+    
+        '''
+        diff = y_pred-y
+        L_small = 1/2 * (y_pred-y)**2
+        L_large = self.delta * np.abs(y_pred - y) - 1/2 * self.delta**2
+        mask = np.abs(diff)<=self.delta
+        L = L_small*mask + L_large*(1-mask)
+        return L
+    
+    def derivative(self, y, y_pred):
+        '''
+    
+        Parameters
+        ----------
+        y : ndarray, shape: (number of samples, number of outputs)
+            Correct labels.
+        y_pred : ndarray, shape: (number of samples, number of outputs)
+            Predicted labels.
+    
+        Returns
+        -------
+        float
+            Derivative of the Huber Loss of the correct and predicted labels.
+    
+        '''
+        diff = y_pred-y
+        L_small = y_pred-y
+        L_large = np.sign(y_pred-y) * self.delta
+        mask = np.abs(diff)<=self.delta
+        L = L_small*mask + L_large*(1-mask)
+        return L
 
     
 
