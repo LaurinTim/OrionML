@@ -36,4 +36,13 @@ For classification, animal_faces_GDCLassifier_example.py contains an example whe
 
 ## Neural Networks
 
-There is a class for neural networks (OrionML.NeuralNetwork) that implements Linear (Dense) layers and Dropout layers (need to check if the dropout layers work correctly). Everything should work currently if only linear layers with linear activation functions are used.
+There is a class for neural networks (OrionML.NeuralNetwork) that implements Linear (Dense) layers and Dropout layers. All activations mentioned above can be chosen for the Linear layers. In addition, the following loss functions can be chosen:
+
+ * mean squared error
+ * mean average error
+ * mean bias error
+ * cross entropy (logistics)
+ * hinge
+ * squared hinge
+ * L1 (epsilon insentive) 
+ * L2 (squared epsilon insentive)
