@@ -46,3 +46,4 @@ There is a class for neural networks (OrionML.NeuralNetwork) that implements Lin
  * squared hinge
  * L1 (epsilon insentive) 
  * L2 (squared epsilon insentive)
+ * Huber
