@@ -420,7 +420,8 @@ class Pool():
         '''
         return f"OrionML.Layer.Pool (kernel size: {self.kernel_size}, stride: {self.stride}, padding: {self.padding}, pooling mode: {self.pool_mode})"
     
-    def value1(self, A, training=False):
+    
+    def value(self, A, training=False):
         '''
         Apply pooling of type self.pool_mode to the input.
         
@@ -438,34 +439,6 @@ class Pool():
             Copy of activation_output but each element set to 0 with probability dropout_probability.
 
         '''
-# =============================================================================
-#       As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
-#       Dimension of A.strides will be 64/8=4. 
-#       For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
-#       The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
-#       For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
-#       The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
-# =============================================================================
-        A_num_dims = A.ndim
-        
-        assert A_num_dims == 4, "Input to pooling layer has wrong number of dimensions. A needs 4 dimensions."
-        
-        A = np.pad(A, self.padding, mode="constant")
-        
-        output_shape = (A.shape[0], A.shape[1], (A.shape[2] + 2*self.padding - self.kernel_size) // self.stride + 1, (A.shape[3] + 2*self.padding - self.kernel_size) // self.stride + 1)
-        w_shape = (output_shape[0], output_shape[1], output_shape[2], output_shape[3], self.kernel_size, self.kernel_size)
-        w_strides = (A.strides[0], A.strides[1], self.stride*A.strides[2], self.stride*A.strides[3], A.strides[2], A.strides[3])
-        
-        A_w = np.lib.stride_tricks.as_strided(A, w_shape, w_strides)
-
-        if self.pool_mode=="max":
-            A_w = A_w.max(axis=(4, 5))
-        elif self.pool_mode=="avg":
-            A_w = A_w.mean(axis=(4, 5))
-        
-        return A_w
-    
-    def value(self, A, training=False):
         A_w_cols = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride)
         max_idx = np.argmax(A_w_cols.reshape(A.shape[1], self.kernel_size**2, -1), axis=1)
         
@@ -523,6 +496,10 @@ class Pool():
             dx = utils.col2im(np.ones_like(x_cols), A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
 
         return dx
+    
+    def forward(self, prev_A, training=False):
+        curr_A, cache = self.value(prev_A, training=training)
+        return curr_A, cache
     
     def backward(self, dA, cache, training=False):
         A_prev, A_w_cols, max_idx = cache
