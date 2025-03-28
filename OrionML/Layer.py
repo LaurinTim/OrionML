@@ -500,24 +500,27 @@ class Pool():
 
         '''        
         N, C, H, W = A_prev.shape
-
-        # Initialize gradient for x_cols as zeros.
-        dmax = np.zeros_like(x_cols)
         
-        # Reshape dout to match the dimensions of x_cols:
-        # dout: (N, C, out_height, out_width) -> (C, 1, N*out_height*out_width)
-        dA_reshaped = dA.transpose(1, 2, 3, 0).reshape(C, -1)
-        
-        # Scatter the upstream gradients to the positions of the max indices.
-        # For each channel and each pooling window, place the corresponding gradient at the max index.
-        print(np.arange(C)[:, None], max_idx, np.arange(x_cols.shape[2]))
-        dmax[np.arange(C)[:, None], max_idx, np.arange(x_cols.shape[2])] = dA_reshaped
-        
-        # Reshape dmax back to the 2D column shape expected by col2im.
-        dmax = dmax.reshape(C * self.kernel_size**2, -1)
-        
-        # Convert the columns back to the original image shape.
-        dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
+        if self.pool_mode=="max":
+            # Initialize gradient for x_cols as zeros.
+            dmax = np.zeros_like(x_cols)
+            
+            # Reshape dout to match the dimensions of x_cols:
+            # dout: (N, C, out_height, out_width) -> (C, 1, N*out_height*out_width)
+            dA_reshaped = dA.transpose(1, 2, 3, 0).reshape(C, -1)
+            
+            # Scatter the upstream gradients to the positions of the max indices.
+            # For each channel and each pooling window, place the corresponding gradient at the max index.
+            dmax[np.arange(C)[:, None], max_idx, np.arange(x_cols.shape[2])] = dA_reshaped
+            
+            # Reshape dmax back to the 2D column shape expected by col2im.
+            dmax = dmax.reshape(C * self.kernel_size**2, -1)
+            
+            # Convert the columns back to the original image shape.
+            dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
+            
+        if self.pool_mode=="avg":
+            dx = utils.col2im(np.ones_like(x_cols), A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
 
         return dx
     
@@ -549,7 +552,7 @@ if __name__ == "__main__":
                     [4, 1, 1, 2],
                     [5, 3, 2, 3]]]])
     
-    l = Pool(2, 1, 0, pool_mode="max")
+    l = Pool(2, 2, 0, pool_mode="avg")
     aw, c = l.value(a)
     daw = l.backward(np.ones_like(aw), c)
 
