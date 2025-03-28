@@ -6,12 +6,13 @@ import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
 
 import activation as activ
+import utils
 
 class Linear():
     
     def __init__(self, dim1, dim2, activation, bias=True, alpha=0.1):
         '''
-        Linear layer.
+        Linear Layer.
 
         Parameters
         ----------
@@ -20,10 +21,10 @@ class Linear():
         dim2 : int
             Size of the output sample.
         activation : str
-            Activation to use for this layer. The available activations are: 
+            Activation to use for this Layer. The available activations are: 
             {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.
         bias : TYPE, optional
-            Whether or not the layer contains a bias. The default is True.
+            Whether or not the Layer contains a bias. The default is True.
         alpha : float
             Only used if the activation is "leakyrelu". Slope of the leaky ReLU when z<0. 
             The default is 0.1.
@@ -101,7 +102,7 @@ class Linear():
 
         '''
         assert not (self.bias==True and b_new is None), "ERROR: Expected a bias when updating the parameters."
-        assert not (self.bias == False and not b_new is None), "ERROR: This layer has no bias but a new bias was passed along."
+        assert not (self.bias == False and not b_new is None), "ERROR: This Layer has no bias but a new bias was passed along."
         
         self.w = w_new
         if self.bias==True: self.b = b_new
@@ -118,7 +119,7 @@ class Linear():
         x : ndarray, shape: (number of samples, self.dim1)
             Input data.
         training : bool/None, optional
-            Whether the layer is currently in training or not. This has no effect for linear 
+            Whether the Layer is currently in training or not. This has no effect for linear 
             Layers. The default is None.
 
         Returns
@@ -143,7 +144,7 @@ class Linear():
         x : ndarray, shape: (number of samples, self.dim1)
             Input data.
         training : bool/None, optional
-            Whether the layer is currently in training or not. This has no effect for linear 
+            Whether the Layer is currently in training or not. This has no effect for linear 
             Layers. The default is None.
 
         Returns
@@ -166,7 +167,7 @@ class Linear():
         prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
             Data before the current linear Layer is applied.
         training : bool/None, optional
-            Whether the layer is currently in training or not. This has no effect for linear 
+            Whether the Layer is currently in training or not. This has no effect for linear 
             Layers. The default is None.
 
         Returns
@@ -203,7 +204,7 @@ class Linear():
             cache containing information from the forward propagation of the current linear Layer. 
             For its contens, refer to the return of self.forward.
         training : bool/None, optional
-            Whether the layer is currently in training or not. This has no effect for linear 
+            Whether the Layer is currently in training or not. This has no effect for linear 
             Layers. The default is None.
 
         Returns
@@ -211,9 +212,9 @@ class Linear():
         prev_dA : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
             Derivative of all Layers in the Neural Network starting from the current Layer.
         curr_dw : ndarray, shape: (self.dim1, self.dim2)
-            Derivative of the weights of the current layer given dA and the values in the cache.
+            Derivative of the weights of the current Layer given dA and the values in the cache.
         curr_db : ndarray, shape: (1, self.dim2)
-            Derivative of the bias of the current layer given dA and the values in the cache.
+            Derivative of the bias of the current Layer given dA and the values in the cache.
 
         '''
         prev_A, curr_w, curr_b, curr_Z = cache
@@ -229,12 +230,12 @@ class Linear():
 class Dropout():
     def __init__(self, dropout_probability=0.3, scale=True):
         '''
-        Dropout layer.
+        Dropout Layer.
 
         Parameters
         ----------
         dropout_probability : TYPE, optional
-            DESCRIPTION. The default is 0.3.
+            Probability for each node to be set to 0. The default is 0.3.
         scale : bool, optional
             Whether the remaining weights should be scaled by 1/dropout_probability.
             The default is True.
@@ -277,7 +278,7 @@ class Dropout():
         activation_output : ndarray, shape: (input size, output size)
             Output after an activation function to pass through the dropout Layer.
         training : bool, optional
-            Whether the layer is currently in training or not. If training is False, no dropout 
+            Whether the Layer is currently in training or not. If training is False, no dropout 
             is applied. The default is False.
 
         Returns
@@ -301,14 +302,14 @@ class Dropout():
     
     def derivative(self, mask, training=False):
         '''
-        Get the derivative of the dropout layer.
+        Get the derivative of the dropout Layer.
 
         Parameters
         ----------
         mask : ndarray, shape: (input size, output size)
             Mask from the dropout Layer when it was applied
         training : bool, optional
-            Whether the layer is currently in training or not. If training is False, no dropout 
+            Whether the Layer is currently in training or not. If training is False, no dropout 
             is applied and the derivative is the same as for linear activation. The default is False.
 
         Returns
@@ -329,7 +330,7 @@ class Dropout():
         prev_A : ndarray, shape: (input size, output size)
             Data before the current dropout Layer is applied.
         training : bool, optional
-            Whether the layer is currently in training or not. The default is False.
+            Whether the Layer is currently in training or not. The default is False.
 
         Returns
         -------
@@ -360,7 +361,7 @@ class Dropout():
             cache containing information from the forward propagation of the current dropout Layer. 
             For its contens, refer to the return of self.forward.
         training : bool, optional
-            Whether the layer is currently in training or not. The default is False.
+            Whether the Layer is currently in training or not. The default is False.
 
         Returns
         -------
@@ -369,11 +370,233 @@ class Dropout():
 
         '''
         prev_A, curr_mask = cache
-        d_layer = self.derivative(curr_mask, training=training)
-        prev_dA = d_layer * dA
+        d_Layer = self.derivative(curr_mask, training=training)
+        prev_dA = d_Layer * dA
         return prev_dA
 
+
+class Pool():
+    def __init__(self, kernel_size, stride, padding=0, pool_mode="max"):
+        '''
+        Pooling Layer.
+
+        Parameters
+        ----------
+        kernel_size : int
+            Size of the window over which the pooling is applied.
+        stride : int
+            Stride of the window.
+        padding : int, optional
+            Zeros padding on the sides of the input. The default is 0.
+        pool_mode : str, optional
+            What type of pooling to apply. Has to be one of {max, avg}. The default is "max".
+
+        '''
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.pool_mode = pool_mode
+        
+    def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to pooling Layers.
+
+        '''
+        return "OrionML.Layer.Pool"
+    
+    def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the pooling Layer with information about the kernel size, stride, 
+            padding and what type of pooling is applied.
+
+        '''
+        return f"OrionML.Layer.Pool (kernel size: {self.kernel_size}, stride: {self.stride}, padding: {self.padding}, pooling mode: {self.pool_mode})"
+    
+    def value1(self, A, training=False):
+        '''
+        Apply pooling of type self.pool_mode to the input.
+        
+        Parameters
+        ----------
+        A : ndarray, shape: (input size, number of filters, dim1, dim2)
+            array to apply the pooling to the second dimension
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        res : ndarray, shape: (input size, output size)
+            Copy of activation_output but each element set to 0 with probability dropout_probability.
+
+        '''
+# =============================================================================
+#       As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
+#       Dimension of A.strides will be 64/8=4. 
+#       For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
+#       The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
+#       For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
+#       The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
+# =============================================================================
+        A_num_dims = A.ndim
+        
+        assert A_num_dims == 4, "Input to pooling layer has wrong number of dimensions. A needs 4 dimensions."
+        
+        A = np.pad(A, self.padding, mode="constant")
+        
+        output_shape = (A.shape[0], A.shape[1], (A.shape[2] + 2*self.padding - self.kernel_size) // self.stride + 1, (A.shape[3] + 2*self.padding - self.kernel_size) // self.stride + 1)
+        w_shape = (output_shape[0], output_shape[1], output_shape[2], output_shape[3], self.kernel_size, self.kernel_size)
+        w_strides = (A.strides[0], A.strides[1], self.stride*A.strides[2], self.stride*A.strides[3], A.strides[2], A.strides[3])
+        
+        A_w = np.lib.stride_tricks.as_strided(A, w_shape, w_strides)
+
+        if self.pool_mode=="max":
+            A_w = A_w.max(axis=(4, 5))
+        elif self.pool_mode=="avg":
+            A_w = A_w.mean(axis=(4, 5))
+        
+        return A_w
+    
+    def value(self, A, training=False):
+        A_w_cols = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride)
+        max_idx = np.argmax(A_w_cols.reshape(A.shape[1], self.kernel_size**2, -1), axis=1)
+        
+        A_w = np.reshape(np.array([A_w_cols[:, ::2], A_w_cols[:, 1::2]]), (A.shape[0], A.shape[1], self.kernel_size**2, ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1) * ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1)))
+        
+        if self.pool_mode=="max":
+            A_w = np.max(A_w, axis=2)
             
+        if self.pool_mode=="avg":
+            A_w = np.mean(A_w, axis=2)
+            
+        cache = (A, A_w_cols.reshape(A.shape[1], self.kernel_size**2, -1), max_idx)
+        
+        return A_w.reshape(A.shape[0], A.shape[1], (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, (A.shape[3] + 2*self.padding - self.kernel_size)//self.stride + 1), cache
+    
+    def derivative(self, A_prev, dA, x_cols, max_idx, training=False):
+        '''
+        Get the derivative of the pooling Layer.
+
+        Parameters
+        ----------
+        mask : ndarray, shape: (input size, output size)
+            Mask from the dropout Layer when it was applied
+        training : bool, optional
+            Whether the Layer is currently in training or not. If training is False, no dropout 
+            is applied and the derivative is the same as for linear activation. The default is False.
+
+        Returns
+        -------
+        ndarray, shape: (input size, output size)
+            If training is False, return an array filled with ones. Otherwise return mask.
+
+        '''        
+        N, C, H, W = A_prev.shape
+
+        # Initialize gradient for x_cols as zeros.
+        dmax = np.zeros_like(x_cols)
+        
+        # Reshape dout to match the dimensions of x_cols:
+        # dout: (N, C, out_height, out_width) -> (C, 1, N*out_height*out_width)
+        dA_reshaped = dA.transpose(1, 2, 3, 0).reshape(C, -1)
+        
+        # Scatter the upstream gradients to the positions of the max indices.
+        # For each channel and each pooling window, place the corresponding gradient at the max index.
+        print(np.arange(C)[:, None], max_idx, np.arange(x_cols.shape[2]))
+        dmax[np.arange(C)[:, None], max_idx, np.arange(x_cols.shape[2])] = dA_reshaped
+        
+        # Reshape dmax back to the 2D column shape expected by col2im.
+        dmax = dmax.reshape(C * self.kernel_size**2, -1)
+        
+        # Convert the columns back to the original image shape.
+        dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
+
+        return dx
+    
+    def backward(self, dA, cache, training=False):
+        A_prev, A_w_cols, max_idx = cache
+        dx = self.derivative(A_prev, dA, A_w_cols, max_idx, training=training)
+        return dx
+    
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[[[1, 1, 2, 4],
+                    [5, 6, 7, 8],
+                    [3, 2, 1, 0],
+                    [1, 2, 3, 4]], 
+                  
+                   [[3, 2, 7, 4],
+                    [8, 1, 4, 2],
+                    [3, 1, 1, 2],
+                    [5, 6, 2, 3]]],
+                  
+                  [[[1, 1, 2, 4],
+                    [5, 2, 7, 1],
+                    [3, 2, 1, 0],
+                    [1, 2, 5, 4]], 
+                 
+                   [[3, 2, 1, 4],
+                    [1, 1, 4, 2],
+                    [4, 1, 1, 2],
+                    [5, 3, 2, 3]]]])
+    
+    l = Pool(2, 1, 0, pool_mode="max")
+    aw, c = l.value(a)
+    daw = l.backward(np.ones_like(aw), c)
+
+# %%    
+
+if __name__ == "__main__":
+    a = np.array([[[1, 1, 2, 4],
+                    [5, 6, 7, 8],
+                    [3, 2, 1, 0],
+                    [1, 2, 3, 4]], 
+                  
+                   [[3, 2, 7, 4],
+                    [8, 1, 4, 2],
+                    [3, 1, 1, 2],
+                    [5, 6, 2, 3]]])
+    
+    l = Pool(2, 2, 0, pool_mode="max")
+    aw = l.derivative(a)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
