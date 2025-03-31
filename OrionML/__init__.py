@@ -339,6 +339,7 @@ class NeuralNetwork():
             batch size. The default is None.
 
         '''
+        self.J_h = []
         
         num_samples = x.shape[0]
         
@@ -352,16 +353,14 @@ class NeuralNetwork():
         for i in range(epochs):
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
-                AL = Loss.mse().value(curr_y, A)
-                dAL = Loss.mse().derivative(curr_y, A)
-                #print([list(val) for val in A])
-                #print([list(val) for val in curr_y])
-                #AL = Loss.hinge().value(curr_y, A)
-                #dAL = Loss.hinge().derivative(curr_y, A)
-                #print(AL)
+                #AL = Loss.mse().value(curr_y, A)
+                #dAL = Loss.mse().derivative(curr_y, A)
+                AL = Loss.hinge().value(curr_y, A)
+                dAL = Loss.hinge().derivative(curr_y, A)
                 grads = self.backward(dAL, caches)
                 self.update_parameters(grads)
                 
+            self.J_h.append(AL)
             if i% math.ceil(epochs/10) == 0:
                 print(f"Iteration {i:4}: Cost {AL:8.10f}")#", params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
         
@@ -401,11 +400,11 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Linear(784, 16, activation="relu"), Layer.Linear(16, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 128, activation="relu"), Layer.Linear(128, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, learning_rate=1e-1)
+    nn = NeuralNetwork(seq, learning_rate=1e-2)
     
-    nn.fit(train_X, train_y, epochs=500, batch_size=1000)
+    nn.fit(train_X, train_y, epochs=100, batch_size=10000)
 
 # %%
 
@@ -416,10 +415,6 @@ if __name__ == "__main__":
     wrong = len(val_y)-np.sum(same)
     acc = np.sum(same)/len(val_y)
     print(wrong, acc)
-
-# %%
-
-A = [[9.159011214578232e-17, 2.0262121633314486e-20, 2.3461790870724137e-15, 1.1898016442419177e-20, 5.798974463422392e-17, 1.4035631439037173e-28, 4.499750796972673e-19, 8.94732762285331e-24, 6.182116402865863e-26, 0.9999999999999976], [4.001857667276166e-19, 6.899454612083768e-23, 5.488631989672106e-23, 5.792563650440625e-23, 6.901185218369336e-20, 2.8271992076665695e-43, 3.1958672754779e-14, 1.3112000127435736e-07, 4.335720641077227e-11, 0.9999998688366096], [0.9947799753946017, 2.1731118631212725e-12, 0.004955716593797951, 4.294430192109588e-08, 3.4845537361741687e-19, 1.5549356753609053e-14, 1.9228899176939533e-05, 1.292189892208903e-19, 0.0002450361659329047, 4.207090666901657e-21], [5.717665370406519e-08, 1.2565231470548458e-21, 3.616860019070473e-15, 2.914059092085788e-11, 1.344059642379838e-15, 0.4678966798630464, 0.5321030428072038, 2.9023489620651642e-25, 2.2012395076080541e-07, 8.564226368494566e-19], [2.6422240624966227e-18, 1.872249534915335e-39, 7.603331905941715e-10, 4.7946790037728345e-34, 8.687405032753881e-26, 1.1214224239258506e-17, 0.9999999895683489, 3.303419337889236e-36, 7.412285230041684e-33, 9.671317841972989e-09]]
 
 # %%
 
