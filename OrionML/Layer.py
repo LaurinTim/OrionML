@@ -474,14 +474,14 @@ class Pool():
 
         '''        
         N, C, H, W = A_prev.shape
+
+        # Reshape dout to match the dimensions of x_cols:
+        # dout: (N, C, out_height, out_width) -> (C, 1, N*out_height*out_width)
+        dA_reshaped = dA.transpose(1, 2, 3, 0).reshape(C, -1)
         
         if self.pool_mode=="max":
             # Initialize gradient for x_cols as zeros.
             dmax = np.zeros_like(x_cols)
-            
-            # Reshape dout to match the dimensions of x_cols:
-            # dout: (N, C, out_height, out_width) -> (C, 1, N*out_height*out_width)
-            dA_reshaped = dA.transpose(1, 2, 3, 0).reshape(C, -1)
             
             # Scatter the upstream gradients to the positions of the max indices.
             # For each channel and each pooling window, place the corresponding gradient at the max index.
@@ -494,7 +494,8 @@ class Pool():
             dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
             
         if self.pool_mode=="avg":
-            dx = utils.col2im(np.zeros_like(x_cols), A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
+            dcols = np.repeat(dA_reshaped, self.kernel_size**2, axis=0) / (self.kernel_size**2)
+            dx = utils.col2im(dcols, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
 
         return dx
     
