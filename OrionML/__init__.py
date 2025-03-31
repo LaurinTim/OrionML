@@ -293,7 +293,7 @@ class NeuralNetwork():
                 
             elif curr_layer_type == "OrionML.Layer.Dropout":
                 dA = self.sequential[i].backward(curr_dA, curr_cache)
-                        
+                                        
         return grads
     
     def update_parameters(self, grads):
@@ -357,11 +357,7 @@ class NeuralNetwork():
                 dAL = Loss.hinge().derivative(curr_y, A)
                 grads = self.backward(dAL, caches)
                 self.update_parameters(grads)
-                print(len(grads), len(grads[0]))
-                print(grads[0][0].shape, grads[0][1].shape, grads[0][2].shape)
-                print(grads[1][0].shape, grads[1][1].shape, grads[1][2].shape)
-                print(grads[2][0].shape, grads[2][1].shape, grads[2][2].shape)
-                #print(grads[0])
+                
             if i% math.ceil(epochs/10) == 0:
                 print(f"Iteration {i:4}: Cost {AL:8.2f}, params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
         

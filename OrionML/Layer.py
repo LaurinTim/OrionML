@@ -493,7 +493,7 @@ class Pool():
             dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
             
         if self.pool_mode=="avg":
-            dx = utils.col2im(np.ones_like(x_cols), A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
+            dx = utils.col2im(x_cols, A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
 
         return dx
     
