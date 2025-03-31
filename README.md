@@ -26,14 +26,6 @@ The most common activation functions are also available:
   * tanh
   * softmax
 
-## Examples
-
-There are some examples available in the examples directory. 
-
-For regression, the GDRegressor_example_Boston_housing notebook contains an example predicting house prices in Boston based on 13 features.
-
-For classification, animal_faces_GDCLassifier_example.py contains an example where pictures are classified into 12 categories, based on which animal can be seen on the picture. To minimize computational power, a histogram of oriented gradients (hog) is created for each image. An accuracy of around 90% is reached in the validation set. The same data is also evaluated with the SGDClassifier from sklearn, with which again an accuracy around 90% is reached.
-
 ## Neural Networks
 
 There is a class for neural networks (OrionML.NeuralNetwork) that implements Linear (Dense) layers and Dropout layers. All activations mentioned above can be chosen for the Linear layers. In addition, the following loss functions can be chosen:
@@ -47,3 +39,13 @@ There is a class for neural networks (OrionML.NeuralNetwork) that implements Lin
  * L1 (epsilon insentive) 
  * L2 (squared epsilon insentive)
  * Huber
+
+## Examples
+
+There are some examples available in the examples directory. 
+
+For regression, the GDRegressor_example_Boston_housing notebook contains an example predicting house prices in Boston based on 13 features.
+
+For classification, animal_faces_GDCLassifier_example.py contains an example where pictures are classified into 12 categories, based on which animal can be seen on the picture. To minimize computational power, a histogram of oriented gradients (hog) is created for each image. An accuracy of around 90% is reached in the validation set. The same data is also evaluated with the SGDClassifier from sklearn, with which again an accuracy around 90% is reached.
+
+For Neural Networks, MNIST_NN_example contains an example for a Neural Netwok. In this example, this MNIST dataset consisting of images of handwritten digits between 0 and 9. The goal is to use image classification to figure out which number is written on the images.
