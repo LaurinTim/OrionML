@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import copy
+import pandas as pd
 
 import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
@@ -82,7 +83,7 @@ class Sequential():
         
         for layer in self.layers:
             x_curr = x_next
-            x_next = layer.value(x_curr)
+            x_next, _ = layer.value(x_curr)
         
         return x_next
     
@@ -158,9 +159,9 @@ class Sequential():
         
         for i in range(self.num_layers):
             if self.trainable_layers[i]==True:
-                w_temp.append(np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1/np.sqrt(self.layer_dimensions[i][0]))
+                w_temp.append(np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0]))
                 if self.bias_layers[i]==True:
-                    b_temp.append(np.random.rand(1, self.layer_dimensions[i][1]) * 1/np.sqrt(self.layer_dimensions[i][0]))
+                    b_temp.append(np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0]))
                     self.layers[i].update_parameters(w_temp[-1], b_temp[-1])
                 else:
                     b_temp.append(np.array([[0]]))
@@ -347,22 +348,79 @@ class NeuralNetwork():
         else:
             x_batches = [x[i:i+batch_size] for i in range(0, num_samples, batch_size)]
             y_batches = [y[i:i+batch_size] for i in range(0, num_samples, batch_size)]
-        
+                    
         for i in range(epochs):
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
-                #AL = Loss.mse().value(curr_y, A)
-                #dAL = Loss.mse().derivative(curr_y, A)
-                AL = Loss.hinge().value(curr_y, A)
-                dAL = Loss.hinge().derivative(curr_y, A)
+                AL = Loss.mse().value(curr_y, A)
+                dAL = Loss.mse().derivative(curr_y, A)
+                #print([list(val) for val in A])
+                #print([list(val) for val in curr_y])
+                #AL = Loss.hinge().value(curr_y, A)
+                #dAL = Loss.hinge().derivative(curr_y, A)
+                #print(AL)
                 grads = self.backward(dAL, caches)
                 self.update_parameters(grads)
                 
             if i% math.ceil(epochs/10) == 0:
-                print(f"Iteration {i:4}: Cost {AL:8.2f}, params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
+                print(f"Iteration {i:4}: Cost {AL:8.10f}")#", params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
         
         return
-   
+
+# %%
+
+if __name__ == "__main__":
+
+    np.random.seed(0)
+    
+    df1 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train1.csv", 
+                   delimiter=",", header=None)
+
+    df2 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train2.csv", 
+                       delimiter=",", header=None)
+    
+    df = pd.concat([df1, df2], axis=0).reset_index(drop=True)
+    
+    df_val = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_test.csv", 
+                       delimiter=",", header=None)
+    
+    train_X = np.array(df.iloc[:,1:])
+    train_y_col = np.array(df.iloc[:,0]).reshape(-1,1)
+    val_X = np.array(df_val.iloc[:,1:])
+    val_y_col = np.array(df_val.iloc[:,0]).reshape(-1,1)
+    
+    train_y = np.zeros((len(train_y_col), 10))
+    for i in range(len(train_y)):
+        train_y[i][train_y_col[i]] = 1
+        
+    val_y = np.zeros((len(val_y_col), 10))
+    for i in range(len(val_y)):
+        val_y[i][val_y_col[i]] = 1
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Linear(784, 16, activation="relu"), Layer.Linear(16, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, learning_rate=1e-1)
+    
+    nn.fit(train_X, train_y, epochs=500, batch_size=1000)
+
+# %%
+
+if __name__ == "__main__":
+    y_pred = seq(val_X)
+    pred = np.array([np.random.multinomial(1,val) for val in y_pred])
+    same = np.array([np.array_equal(val_y[i], pred[i]) for i in range(len(val_y))])
+    wrong = len(val_y)-np.sum(same)
+    acc = np.sum(same)/len(val_y)
+    print(wrong, acc)
+
+# %%
+
+A = [[9.159011214578232e-17, 2.0262121633314486e-20, 2.3461790870724137e-15, 1.1898016442419177e-20, 5.798974463422392e-17, 1.4035631439037173e-28, 4.499750796972673e-19, 8.94732762285331e-24, 6.182116402865863e-26, 0.9999999999999976], [4.001857667276166e-19, 6.899454612083768e-23, 5.488631989672106e-23, 5.792563650440625e-23, 6.901185218369336e-20, 2.8271992076665695e-43, 3.1958672754779e-14, 1.3112000127435736e-07, 4.335720641077227e-11, 0.9999998688366096], [0.9947799753946017, 2.1731118631212725e-12, 0.004955716593797951, 4.294430192109588e-08, 3.4845537361741687e-19, 1.5549356753609053e-14, 1.9228899176939533e-05, 1.292189892208903e-19, 0.0002450361659329047, 4.207090666901657e-21], [5.717665370406519e-08, 1.2565231470548458e-21, 3.616860019070473e-15, 2.914059092085788e-11, 1.344059642379838e-15, 0.4678966798630464, 0.5321030428072038, 2.9023489620651642e-25, 2.2012395076080541e-07, 8.564226368494566e-19], [2.6422240624966227e-18, 1.872249534915335e-39, 7.603331905941715e-10, 4.7946790037728345e-34, 8.687405032753881e-26, 1.1214224239258506e-17, 0.9999999895683489, 3.303419337889236e-36, 7.412285230041684e-33, 9.671317841972989e-09]]
+
 # %%
 
 if __name__ == "__main__":

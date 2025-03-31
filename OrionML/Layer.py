@@ -291,7 +291,7 @@ class Dropout():
 
         '''
         if training==False:
-            return activation_output
+            return activation_output, np.zeros(1)
         
         mask = np.random.rand(activation_output.shape[0], activation_output.shape[1]) > self.dropout_probability
         res = mask*activation_output
