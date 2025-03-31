@@ -442,7 +442,8 @@ class Pool():
         A_w_cols = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride)
         max_idx = np.argmax(A_w_cols.reshape(A.shape[1], self.kernel_size**2, -1), axis=1)
         
-        A_w = np.reshape(np.array([A_w_cols[:, ::2], A_w_cols[:, 1::2]]), (A.shape[0], A.shape[1], self.kernel_size**2, ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1) * ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1)))
+        #A_w = np.reshape(np.array([A_w_cols[:, 0::2], A_w_cols[:, 1::2]]), (A.shape[0], A.shape[1], self.kernel_size**2, ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1) * ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1)))
+        A_w = np.reshape(np.array([A_w_cols[:, val::A.shape[0]] for val in range(A.shape[0])]), (A.shape[0], A.shape[1], self.kernel_size**2, ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1) * ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1)))
         
         if self.pool_mode=="max":
             A_w = np.max(A_w, axis=2)
@@ -493,7 +494,7 @@ class Pool():
             dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
             
         if self.pool_mode=="avg":
-            dx = utils.col2im(x_cols, A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
+            dx = utils.col2im(np.zeros_like(x_cols), A_prev.shape, self.kernel_size, self.kernel_size, self.stride) / (self.kernel_size**2)
 
         return dx
     
@@ -505,6 +506,23 @@ class Pool():
         A_prev, A_w_cols, max_idx = cache
         dx = self.derivative(A_prev, dA, A_w_cols, max_idx, training=training)
         return dx
+
+# %%    
+
+if __name__ == "__main__":
+    a = np.array([[[[1, 1, 2, 4],
+                    [5, 6, 7, 8],
+                    [3, 2, 1, 0],
+                    [1, 2, 3, 4]], 
+                  
+                   [[3, 2, 7, 4],
+                    [8, 1, 4, 2],
+                    [3, 1, 1, 2],
+                    [5, 6, 2, 3]]]])
+    
+    l = Pool(3, 2, 0, pool_mode="max")
+    aw, c = l.value(a)
+    daw = l.backward(np.ones_like(aw), c)
     
 # %%
 
@@ -529,25 +547,10 @@ if __name__ == "__main__":
                     [4, 1, 1, 2],
                     [5, 3, 2, 3]]]])
     
-    l = Pool(2, 2, 0, pool_mode="avg")
+    l = Pool(2, 2, 0, pool_mode="max")
     aw, c = l.value(a)
     daw = l.backward(np.ones_like(aw), c)
 
-# %%    
-
-if __name__ == "__main__":
-    a = np.array([[[1, 1, 2, 4],
-                    [5, 6, 7, 8],
-                    [3, 2, 1, 0],
-                    [1, 2, 3, 4]], 
-                  
-                   [[3, 2, 7, 4],
-                    [8, 1, 4, 2],
-                    [3, 1, 1, 2],
-                    [5, 6, 2, 3]]])
-    
-    l = Pool(2, 2, 0, pool_mode="max")
-    aw = l.derivative(a)
 
 
 
