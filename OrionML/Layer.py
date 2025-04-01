@@ -219,7 +219,12 @@ class Linear():
         '''
         prev_A, curr_w, curr_b, curr_Z = cache
         d_activation = self.derivative(prev_A)
-        curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
+        if self.activation == "softmax":
+            curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
+            
+        else:
+            curr_dA = dA * d_activation
+            
         curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
         prev_dA = np.matmul(curr_dA, curr_w.T)
