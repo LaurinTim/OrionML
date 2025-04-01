@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import math
 import copy
 import pandas as pd
+from time import time
 
 import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
@@ -154,24 +155,24 @@ class Sequential():
             List containing the bias of the trainable Layers in the sequential.
 
         '''
-        w_temp = []
-        b_temp = []
+        w_temp = {}
+        b_temp = {}
         
         for i in range(self.num_layers):
             if self.trainable_layers[i]==True:
-                w_temp.append(np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0]))
+                w_temp[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
                 if self.bias_layers[i]==True:
-                    b_temp.append(np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0]))
-                    self.layers[i].update_parameters(w_temp[-1], b_temp[-1])
+                    b_temp[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                    self.layers[i].update_parameters(w_temp[f"w layer {i}"], b_temp[f"b layer {i}"])
                 else:
-                    b_temp.append(np.array([[0]]))
-                    self.layers[i].update_parameters(w_temp[-1])
+                    b_temp[f"b layer {i}"] = np.zeros((1,1))
+                    self.layers[i].update_parameters(w_temp[f"w layer {i}"])
                     
         return w_temp, b_temp
         
 
 class NeuralNetwork():
-    def __init__(self, sequential, learning_rate=1e-2):
+    def __init__(self, sequential, optimizer="gd", learning_rate=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8):
         '''
         Create a Neural Network with Layers defined in a Sequential.
 
@@ -185,11 +186,20 @@ class NeuralNetwork():
         '''
         self.sequential = sequential
         self.learning_rate = learning_rate
+        self.epsilon = epsilon
+        self.optimizer_name = optimizer
+        
+        if optimizer in ["Adam", "adam"]:
+            self.optimizer = self.Adam
+            self.beta1 = beta1
+            self.beta2 = beta2
+            self.m_dw, self.v_dw = 0, 0
+            self.m_db, self.v_db = 0, 0
+            
+        elif optimizer in ["gradient descent", "gd"]:
+            self.optimizer = self.gradient_descent
         
         self.w, self.b = self.sequential.initialize_parameters()
-        
-        self.dw = [0]*len(self.w)
-        self.db = [0]*len(self.b)
         
         self.caches = []
                 
@@ -235,7 +245,16 @@ class NeuralNetwork():
             documentation of the Layers.
 
         '''
+        self.itf+=1
         curr_A, cache = self.sequential[layer_pos].forward(prev_A, training=True)
+        
+        tst = np.isnan(curr_A).any()
+        if self.itf>=0 and self.itf<=48 and False:
+            print(f"\nForward iteration {self.itf}:")
+            print(np.sum(curr_A), np.sum(prev_A))
+            
+        if tst and True:
+            print(f"\nForward iteration {self.itf}:")
         
         return curr_A, cache
     
@@ -284,6 +303,8 @@ class NeuralNetwork():
         grads = []
         
         for i in reversed(range(self.sequential.num_layers)):
+            self.itb+=1
+            
             curr_dA = dA
             curr_layer_type = self.sequential[i].type()
             curr_cache = caches[i]
@@ -294,10 +315,14 @@ class NeuralNetwork():
                 
             elif curr_layer_type == "OrionML.Layer.Dropout":
                 dA = self.sequential[i].backward(curr_dA, curr_cache)
+                
+            tst = np.isnan(dA).any()
+            if tst:
+                print(f"\nBackward iteration: {self.itb}\n")
                                         
-        return grads
+        return [[val[0] for val in grads], [val[1] for val in grads], [val[2] for val in grads]]
     
-    def update_parameters(self, grads):
+    def update_parameters(self, grads) -> None:
         '''
         Update the weights and bias of the trainable Layers.
 
@@ -308,19 +333,25 @@ class NeuralNetwork():
 
 
         '''
-        grad_pos = 0
-        
-        for layer in self.sequential:
-            if layer.trainable==True:
-                layer.w -= self.learning_rate * grads[grad_pos][1]
-                layer.b -= self.learning_rate * grads[grad_pos][2]
-                self.w[grad_pos] = layer.w
-                self.b[grad_pos] = layer.b
-                grad_pos += 1
+        self.optimizer(grads)
                 
         return
     
-    def fit(self, x, y, epochs, batch_size = None):
+    def gradient_descent(self, grads) -> None:
+        grad_pos = 0
+        
+        for layer in self.sequential:
+            if layer.trainable:
+                layer.w -= self.learning_rate * grads[1][grad_pos]
+                layer.b -= self.learning_rate * grads[2][grad_pos]
+                self.w[f"w layer {grad_pos}"] = layer.w
+                self.b[f"b layer {grad_pos}"] = layer.b
+            
+            grad_pos += 1
+            
+        return
+    
+    def fit(self, x, y, epochs, batch_size=None, b1=0.9, b2=0.999):
         '''
         Fit input data to a target.
 
@@ -340,6 +371,11 @@ class NeuralNetwork():
 
         '''
         self.J_h = []
+        self.epoch = 0
+        self.times = []
+        self.itf = 0
+        self.itb = 0
+        self.ita = 0
         
         num_samples = x.shape[0]
         
@@ -349,20 +385,56 @@ class NeuralNetwork():
         else:
             x_batches = [x[i:i+batch_size] for i in range(0, num_samples, batch_size)]
             y_batches = [y[i:i+batch_size] for i in range(0, num_samples, batch_size)]
-                    
+            
+            
+        if self.optimizer_name in ["Adam", "adam"]:
+            self.m_dw, self.v_dw = list(np.zeros((np.sum(self.sequential.trainable_layers), 1))), list(np.zeros((np.sum(self.sequential.trainable_layers), 1)))
+            self.m_db, self.v_db = list(np.zeros((np.sum(self.sequential.trainable_layers), 1))), list(np.zeros((np.sum(self.sequential.trainable_layers), 1)))
+                
         for i in range(epochs):
+            self.epoch += 1
+            start_time = time()
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
-                #AL = Loss.mse().value(curr_y, A)
-                #dAL = Loss.mse().derivative(curr_y, A)
-                AL = Loss.hinge().value(curr_y, A)
-                dAL = Loss.hinge().derivative(curr_y, A)
+                
+                AL = Loss.mse().value(curr_y, A)
+                dAL = Loss.mse().derivative(curr_y, A)
+                #AL = Loss.hinge().value(curr_y, A)
+                #dAL = Loss.hinge().derivative(curr_y, A)
+                
                 grads = self.backward(dAL, caches)
+                
                 self.update_parameters(grads)
                 
+                tst = np.array([np.array([np.isnan(val).any() for val in bal]).any() for bal in grads]).any()
+                assert not tst, "hello nan"
+                
+            self.times.append(time()-start_time)
+                            
             self.J_h.append(AL)
-            if i% math.ceil(epochs/10) == 0:
-                print(f"Iteration {i:4}: Cost {AL:8.10f}")#", params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
+            if i% math.ceil(epochs/10) == 0 or i==epochs-1:
+                print(f"Iteration {i:4}: Cost {AL:8.10}")#", params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
+                        
+        return
+    
+    def Adam(self, grads) -> None:
+        grad_pos = 0
+        
+        for layer in self.sequential:
+            if layer.trainable:
+                self.m_dw[grad_pos] = (self.beta1*self.m_dw[grad_pos] + (1-self.beta1)*grads[1][grad_pos])
+                self.m_db[grad_pos] = (self.beta1*self.m_db[grad_pos] + (1-self.beta1)*grads[2][grad_pos])
+                self.v_dw[grad_pos] = (self.beta2*self.v_dw[grad_pos] + (1-self.beta2)*np.square(grads[1][grad_pos]))
+                self.v_db[grad_pos] = (self.beta2*self.v_db[grad_pos] + (1-self.beta2)*np.square(grads[2][grad_pos]))
+                    
+                layer.w -= self.learning_rate * (self.m_dw[grad_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[grad_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                layer.b -= self.learning_rate * (self.m_db[grad_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[grad_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                self.w[f"w layer {grad_pos}"] = layer.w
+                self.b[f"b layer {grad_pos}"] = layer.b
+                
+                self.ita += 1
+                                
+            grad_pos += 1
         
         return
 
@@ -372,13 +444,13 @@ if __name__ == "__main__":
 
     np.random.seed(0)
     
-    df1 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train1.csv", 
-                   delimiter=",", header=None)
+    df1 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train1.csv", delimiter=",", header=None)
 
-    df2 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train2.csv", 
-                       delimiter=",", header=None)
+    df2 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train2.csv", delimiter=",", header=None)
     
     df = pd.concat([df1, df2], axis=0).reset_index(drop=True)
+    
+    #df = df.iloc[:10000]
     
     df_val = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_test.csv", 
                        delimiter=",", header=None)
@@ -400,11 +472,31 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Linear(784, 128, activation="relu"), Layer.Linear(128, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, learning_rate=1e-2)
+    nn = NeuralNetwork(seq, optimizer="Adam", learning_rate=2e-3)
     
-    nn.fit(train_X, train_y, epochs=100, batch_size=10000)
+    nn.fit(train_X, train_y, epochs=500, batch_size=1024)
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Linear(784, 128, activation="relu"), Layer.Linear(128, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="gd", learning_rate=1)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=100)
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="gradient descent", learning_rate=1)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=1000)
 
 # %%
 

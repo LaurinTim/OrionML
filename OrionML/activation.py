@@ -35,8 +35,8 @@ class linear():
             Derivative at the values with respect to a Linear activation function.
     
         '''
-        #return np.ones(z.shape)
-        return np.tile(np.eye(z.shape[1])[None,:,:], (z.shape[0],1,1))
+        return np.ones(z.shape)
+        #return np.tile(np.eye(z.shape[1])[None,:,:], (z.shape[0],1,1))
 
 class relu():
     def __init__(self):
@@ -72,7 +72,8 @@ class relu():
             Derivative at the values with respect to a ReLU activation function.
     
         '''
-        return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float), np.eye(z.shape[1]))
+        return z>0
+        #return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float), np.eye(z.shape[1]))
 
 class elu():
     def __init__(self, alpha=0.1):
@@ -116,7 +117,8 @@ class elu():
             Derivative at the values with respect to a eLU activation function.
     
         '''
-        return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z), np.eye(z.shape[1]))
+        return np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z)
+        #return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z), np.eye(z.shape[1]))
 
 class leakyrelu():
     def __init__(self, alpha=0.1):
@@ -160,7 +162,8 @@ class leakyrelu():
             Derivative at the values with respect to a Leaky ReLU activation function.
     
         '''
-        return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float), np.eye(z.shape[1]))
+        return np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float)
+        #return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float), np.eye(z.shape[1]))
 
 class softplus():
     def __init__(self):
@@ -196,7 +199,8 @@ class softplus():
             Derivative at the values with respect to a Softplus activation function.
     
         '''
-        return np.einsum("ij,jk -> ijk", 1/(1+np.exp(z)), np.eye(z.shape[1]))
+        return 1/(1+np.exp(z))
+        #return np.einsum("ij,jk -> ijk", 1/(1+np.exp(z)), np.eye(z.shape[1]))
 
 class sigmoid():
     def __init__(self):
@@ -233,7 +237,8 @@ class sigmoid():
     
         '''
         sig = self.value(z)
-        return np.einsum("ij,jk -> ijk", sig*(1-sig), np.eye(z.shape[1]))
+        return sig*(1-sig)
+        #return np.einsum("ij,jk -> ijk", sig*(1-sig), np.eye(z.shape[1]))
 
 class tanh():
     def __init__(self):
@@ -270,7 +275,8 @@ class tanh():
     
         '''
         res = self.value(z)
-        return np.einsum("ij,jk -> ijk", 1 - res**2, np.eye(z.shape[1]))
+        return 1 - res**2
+        #return np.einsum("ij,jk -> ijk", 1 - res**2, np.eye(z.shape[1]))
 
 class softmax():
     def __init__(self):
@@ -310,11 +316,6 @@ class softmax():
         res = -sz.reshape(sz.shape[0],-1,1) * sz.reshape(sz.shape[0],1,sz.shape[1])
         res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]))
         return res
- 
-# %%
-    
-#a = [[741.6008634352717, 728.7727674165571, 725.13050194786, 770.0570226848544, 731.3363159915499, 719.7238973869096, 747.9724157089637, 721.4737271520772, 719.1780259737731, 747.6606213102515]]
-#softmax().value(a)
 
 
 
