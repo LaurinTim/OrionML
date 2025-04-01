@@ -492,6 +492,7 @@ class BatchNorm():
         self.epsilon = epsilon
         self.momentum = momentum
         self.sample_dim = sample_dim
+        self.dimension = np.array([self.sample_dim])
         
         self.gamma = np.random.randn(1, self.sample_dim)
         self.beta = np.zeros((1, self.sample_dim))
@@ -552,7 +553,7 @@ class BatchNorm():
             x_normalized = (x-self.running_mean)/np.sqrt(self.running_variance + self.epsilon)
             out = self.gamma*x_normalized + self.beta
             
-            return out
+            return out, ()
     
     def forward(self, prev_A, training=False):
         '''
@@ -617,17 +618,17 @@ class BatchNorm():
         
         m = prev_A.shape[0]
         t = 1/np.sqrt(batch_variance + self.epsilon)
-        dx = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
+        curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
         
-        return dx, dgamma, dbeta
+        return curr_dA, dgamma, dbeta
     
 # %%
 
 if __name__ == "__main__":
     l = BatchNorm(3)
     
-    a = np.array([[0,1,2],[-1,4,3],[2,0,-1]])
-    da = np.array([[-3,-2,5], [1,1,2], [0,-2,3]])
+    a = np.array([[0,1,2],[-1,4,3],[2,0,-1], [5,1,1]])
+    da = np.array([[-3,-2,5], [1,1,2], [0,-2,3], [0,1,0]])
     
     aw, c = l.forward(a, training=True)
     dx, dg, db = l.backward(da, c, training=True)
