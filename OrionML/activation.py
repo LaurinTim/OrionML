@@ -296,7 +296,9 @@ class softmax():
             Values after the Softmax activation.
     
         '''
-        return np.exp(z)/np.sum(np.exp(z), axis=1, keepdims=True)
+        shifted_z = z-np.max(z)
+        exp_z = np.exp(shifted_z)
+        return exp_z/(np.sum(exp_z, axis=1, keepdims=True))
     
     def derivative(self, z):
         '''

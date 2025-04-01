@@ -52,6 +52,9 @@ class Sequential():
         '''
         return "Sequential with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.layers)
     
+    def __len__(self):
+        return self.num_layers
+    
     def __repr__(self):
         '''
         
@@ -63,7 +66,7 @@ class Sequential():
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.layers))
     
-    def __call__(self, x_in):
+    def __call__(self, x_in, training=False):
         '''
         Pass data through all the layers of the sequential.
 
@@ -84,7 +87,7 @@ class Sequential():
         
         for layer in self.layers:
             x_curr = x_next
-            x_next, _ = layer.value(x_curr)
+            x_next, _ = layer.value(x_curr, training=training)
         
         return x_next
     
@@ -160,9 +163,9 @@ class Sequential():
         
         for i in range(self.num_layers):
             if self.trainable_layers[i]==True:
-                w_temp[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                w_temp[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-2/np.sqrt(self.layer_dimensions[i][0])
                 if self.bias_layers[i]==True:
-                    b_temp[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                    b_temp[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-2/np.sqrt(self.layer_dimensions[i][0])
                     self.layers[i].update_parameters(w_temp[f"w layer {i}"], b_temp[f"b layer {i}"])
                 else:
                     b_temp[f"b layer {i}"] = np.zeros((1,1))
@@ -248,13 +251,38 @@ class NeuralNetwork():
         self.itf+=1
         curr_A, cache = self.sequential[layer_pos].forward(prev_A, training=True)
         
-        tst = np.isnan(curr_A).any()
-        if self.itf>=0 and self.itf<=48 and False:
+        if self.itf==54 and False:
             print(f"\nForward iteration {self.itf}:")
-            print(np.sum(curr_A), np.sum(prev_A))
+            print(self.sequential[layer_pos].description())
+            print(curr_A)
+            print([list(val) for val in prev_A])
+            print()
+            print([list(val) for val in self.sequential[layer_pos].w])
+            print([list(val) for val in self.sequential[layer_pos].b])
+        
+        tst = np.isnan(curr_A).any()
+        if tst and False:
+            print(f"\nForward iteration: {self.itf}\n")
             
         if tst and True:
             print(f"\nForward iteration {self.itf}:")
+            
+            for i in range(curr_A.shape[0]):
+                if np.isnan(curr_A[i]).any():
+                    curr_A_nan = curr_A[i]
+                    prev_A_nan = prev_A[i]
+                    break
+            
+            print("curr_A: ", list(curr_A_nan))
+            print("prev_A: ", list(prev_A_nan))
+            print()
+            print("W: ", list(self.sequential[layer_pos].w))
+            print("b: ", list(self.sequential[layer_pos].b))
+            print(self.sequential[layer_pos].description())
+            print(prev_A_nan.shape)
+            print(f"Forward iteration {self.itf}\n")
+            
+        assert not tst, "nan forward"
         
         return curr_A, cache
     
@@ -310,15 +338,17 @@ class NeuralNetwork():
             curr_cache = caches[i]
             
             if curr_layer_type == "OrionML.Layer.Linear":
-                dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache)
+                dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dw, curr_db]] + grads
                 
             elif curr_layer_type == "OrionML.Layer.Dropout":
-                dA = self.sequential[i].backward(curr_dA, curr_cache)
+                dA = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 
             tst = np.isnan(dA).any()
-            if tst:
+            if tst and False:
                 print(f"\nBackward iteration: {self.itb}\n")
+                
+            assert not tst, "nan backward"
                                         
         return [[val[0] for val in grads], [val[1] for val in grads], [val[2] for val in grads]]
     
@@ -349,6 +379,28 @@ class NeuralNetwork():
             
             grad_pos += 1
             
+        return
+    
+    def Adam(self, grads) -> None:
+        grad_pos = 0
+        train_pos = 0
+        
+        for layer in self.sequential:
+            if layer.trainable:
+                self.m_dw[grad_pos] = (self.beta1*self.m_dw[grad_pos] + (1-self.beta1)*grads[1][train_pos])
+                self.m_db[grad_pos] = (self.beta1*self.m_db[grad_pos] + (1-self.beta1)*grads[2][train_pos])
+                self.v_dw[grad_pos] = (self.beta2*self.v_dw[grad_pos] + (1-self.beta2)*np.square(grads[1][train_pos]))
+                self.v_db[grad_pos] = (self.beta2*self.v_db[grad_pos] + (1-self.beta2)*np.square(grads[2][train_pos]))
+                                
+                layer.w -= self.learning_rate * (self.m_dw[grad_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[grad_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                layer.b -= self.learning_rate * (self.m_db[grad_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[grad_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                self.w[f"w layer {grad_pos}"] = layer.w
+                self.b[f"b layer {grad_pos}"] = layer.b
+                
+                train_pos += 1
+                                
+            grad_pos += 1
+        
         return
     
     def fit(self, x, y, epochs, batch_size=None, b1=0.9, b2=0.999):
@@ -388,8 +440,8 @@ class NeuralNetwork():
             
             
         if self.optimizer_name in ["Adam", "adam"]:
-            self.m_dw, self.v_dw = list(np.zeros((np.sum(self.sequential.trainable_layers), 1))), list(np.zeros((np.sum(self.sequential.trainable_layers), 1)))
-            self.m_db, self.v_db = list(np.zeros((np.sum(self.sequential.trainable_layers), 1))), list(np.zeros((np.sum(self.sequential.trainable_layers), 1)))
+            self.m_dw, self.v_dw = list(np.zeros((len(self.sequential), 1))), list(np.zeros((len(self.sequential), 1)))
+            self.m_db, self.v_db = list(np.zeros((len(self.sequential), 1))), list(np.zeros((len(self.sequential), 1)))
                 
         for i in range(epochs):
             self.epoch += 1
@@ -397,10 +449,10 @@ class NeuralNetwork():
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
                 
-                AL = Loss.mse().value(curr_y, A)
-                dAL = Loss.mse().derivative(curr_y, A)
-                #AL = Loss.hinge().value(curr_y, A)
-                #dAL = Loss.hinge().derivative(curr_y, A)
+                #AL = Loss.mse().value(curr_y, A)
+                #dAL = Loss.mse().derivative(curr_y, A)
+                AL = Loss.hinge().value(curr_y, A)
+                dAL = Loss.hinge().derivative(curr_y, A)
                 
                 grads = self.backward(dAL, caches)
                 
@@ -412,30 +464,11 @@ class NeuralNetwork():
             self.times.append(time()-start_time)
                             
             self.J_h.append(AL)
-            if i% math.ceil(epochs/10) == 0 or i==epochs-1:
-                print(f"Iteration {i:4}: Cost {AL:8.10}")#", params: {self.w[0][0][0]:5.2f}, {self.b[0][0][0]:5.2f}")
+            if (i+1)% math.ceil(epochs/10) == 0 or i==0:
+                pred = np.array([np.random.multinomial(1,val) for val in self.sequential(x, training=True)])
+                print(f"Iteration {i+1:4}: Cost {Loss.hinge().value(y, pred):8.4}")
+                #print(f"Iteration {i+1:4}: Cost {AL:8.4}")
                         
-        return
-    
-    def Adam(self, grads) -> None:
-        grad_pos = 0
-        
-        for layer in self.sequential:
-            if layer.trainable:
-                self.m_dw[grad_pos] = (self.beta1*self.m_dw[grad_pos] + (1-self.beta1)*grads[1][grad_pos])
-                self.m_db[grad_pos] = (self.beta1*self.m_db[grad_pos] + (1-self.beta1)*grads[2][grad_pos])
-                self.v_dw[grad_pos] = (self.beta2*self.v_dw[grad_pos] + (1-self.beta2)*np.square(grads[1][grad_pos]))
-                self.v_db[grad_pos] = (self.beta2*self.v_db[grad_pos] + (1-self.beta2)*np.square(grads[2][grad_pos]))
-                    
-                layer.w -= self.learning_rate * (self.m_dw[grad_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[grad_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
-                layer.b -= self.learning_rate * (self.m_db[grad_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[grad_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
-                self.w[f"w layer {grad_pos}"] = layer.w
-                self.b[f"b layer {grad_pos}"] = layer.b
-                
-                self.ita += 1
-                                
-            grad_pos += 1
-        
         return
 
 # %%
@@ -473,10 +506,11 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     np.random.seed(0)
     seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="Adam", learning_rate=2e-3)
+    nn = NeuralNetwork(seq, optimizer="Adam", learning_rate=8e-4)
     
-    nn.fit(train_X, train_y, epochs=500, batch_size=1024)
+    nn.fit(train_X, train_y, epochs=10, batch_size=1024)
     
 # %%
 
@@ -506,7 +540,20 @@ if __name__ == "__main__":
     same = np.array([np.array_equal(val_y[i], pred[i]) for i in range(len(val_y))])
     wrong = len(val_y)-np.sum(same)
     acc = np.sum(same)/len(val_y)
-    print(wrong, acc)
+    loss = Loss.hinge().value(val_y, pred)
+    print(f"Validation data tests: {wrong:4.0f}, {acc:0.4f}, {loss:0.4f}")
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    yt_pred = seq(train_X)
+    predt = np.array([np.random.multinomial(1,val) for val in yt_pred])
+    samet = np.array([np.array_equal(train_y[i], predt[i]) for i in range(len(train_y))])
+    wrongt = len(train_y)-np.sum(samet)
+    acct = np.sum(samet)/len(train_y)
+    losst = Loss.hinge().value(train_y, predt)
+    print(f"Training data tests: {wrongt:5}, {acct:0.4}, {losst:0.4}")
 
 # %%
 
