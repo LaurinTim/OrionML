@@ -132,7 +132,26 @@ class Linear():
 
         '''
         z = np.matmul(x, self.w) + self.b
-        return self.activation_function.value(z), z
+        out = self.activation_function.value(z)
+        if np.isnan(out).any():
+            print("\nERROR IN LAYER VALUE: NAN FOUND")
+            #print(out[:5])
+            print(np.isnan(self.activation_function.value(z[350:400])).any())
+            
+            print(self.activation_function.value(np.array([z[393]])))
+            print(z[393])
+
+            for i in range(50):
+                temp = self.activation_function.value(z[350+i:350+i+2])
+                if np.isnan(temp).any():
+                    print("-"*50)
+                    print(i+350)
+                    print()
+                    print(list(z[350+i:350+i+2]))
+                    print(np.max(z[350+i:350+i+2]))
+                    print(np.max(z[350+i:350+i+2], axis=1, keepdims=True))
+                    print("-"*50)
+        return out, z
     
     def derivative(self, x, training=None):
         '''
@@ -268,37 +287,40 @@ if __name__ == "__main__":
     b = np.array([[-5.70372126, -5.70364477, -5.70360135, -5.70365413, -5.70364012,
             5.70387884, -5.70363339, -5.7037012 , -5.70365785, -5.70364209]])
     
-    a = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.540610991889495e-05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.314123602650649])
+# %%
+
+if __name__ == "__main__":
     
-    w = np.array([[ 0.01423119, -0.08238678,  0.01677191,  0.01746933, -0.09073655,
-            0.01058983, -0.09050491, -0.08344004,  0.03179502, -0.09277976], [ 0.01542936, -0.08300413,  0.01643495,  0.01760986, -0.08782761,
-            0.00456018, -0.08933017, -0.08194094,  0.01672772, -0.09119366], [ 0.02214347, -0.0821694 ,  0.00981532,  0.01864001, -0.08284981,
-           -0.02320888, -0.08287267, -0.07471278, -0.05009705, -0.08644869], [ 0.00875386, -0.00660787,  0.00953017,  0.00944169, -0.00620299,
-           -0.00623215, -0.00613697,  0.00865401, -0.00791366, -0.00783506], [ 0.00029083, -0.09614467,  0.03046559,  0.01686955, -0.11213527,
-            0.04032944, -0.108478  , -0.10384695,  0.07049555, -0.11325687], [ 0.02256142, -0.08219169,  0.00768964,  0.01787886, -0.08401486,
-           -0.02518802, -0.08386992, -0.07501061, -0.05310749, -0.08529057], [ 0.00803486, -0.00656401,  0.00912219,  0.00973924, -0.00782366,
-           -0.00695427, -0.00738894,  0.0083422 , -0.00690453, -0.0078259 ], [ 0.02295757, -0.08095604,  0.00794287,  0.0190425 , -0.08467362,
-           -0.02542593, -0.08302001, -0.0756633 , -0.05138184, -0.08566723], [ 0.02384806, -0.08072419,  0.00779002,  0.01736418, -0.08154393,
-           -0.0292375 , -0.08099265, -0.07468436, -0.05740035, -0.0850349 ], [ 0.00599297, -0.00443139,  0.00501135, -0.00356348,  0.00559916,
-           -0.00911502,  0.00288501,  0.01137872, -0.01089896, -0.00404935], [ 0.00026651, -0.09664596,  0.03142027,  0.01548274, -0.1128415 ,
-            0.03886466, -0.10689991, -0.10396423,  0.07089851, -0.11266599], [ 0.01795049, -0.08388348,  0.01365827,  0.01844045, -0.0881891 ,
-           -0.00356591, -0.08748985, -0.07881672, -0.01383193, -0.08952631], [ 0.00711085, -0.09168441,  0.02363344,  0.01571806, -0.10482323,
-            0.02942287, -0.09993433, -0.09762047,  0.05886071, -0.10558839], [ 0.02281386, -0.08119687,  0.009031  ,  0.01799021, -0.08385371,
-           -0.02571681, -0.08185695, -0.07544795, -0.0527465 , -0.08595647], [ 0.00590884, -0.00435616,  0.00372886, -0.00556075,  0.01199568,
-           -0.01070724, -0.00944949,  0.01552467, -0.01677853,  0.00566684], [ 0.02321712, -0.08173621,  0.00646649,  0.01911559, -0.085701  ,
-           -0.02592707, -0.08270897, -0.07637931, -0.05103604, -0.08662833], [-0.00113849, -0.0978196 ,  0.0319546 ,  0.01454975, -0.11196062,
-            0.04105913, -0.10844681, -0.10377828,  0.06974649, -0.11448731], [ 0.02588652, -0.07757429,  0.00591451,  0.01763733, -0.07930493,
-           -0.03390051, -0.07837006, -0.07082974, -0.06150592, -0.08170548], [ 0.00850154, -0.0067287 ,  0.00934049,  0.00947616, -0.00637971,
-           -0.00786482, -0.00711085,  0.00853728, -0.00608468, -0.00647635], [ 0.00899321, -0.00539505,  0.01116197,  0.00972615, -0.00858115,
-           -0.00923048, -0.00859316, -0.00136597, -0.00055276, -0.00780531], [ 0.02256511, -0.08014957,  0.00920264,  0.0177896 , -0.08382291,
-           -0.0266176 , -0.08235303, -0.07348032, -0.05116498, -0.08533668], [ 0.00838731, -0.00693434,  0.00761027,  0.00464626, -0.01004931,
-           -0.00634517, -0.00624927,  0.01087422, -0.00906623, -0.00712131], [ 0.00848219, -0.00649125,  0.00874874,  0.00865461, -0.00670836,
-           -0.0064694 , -0.00788055,  0.00834955, -0.00603862, -0.00711118], [ 0.02261649, -0.08229773,  0.00774705,  0.01895408, -0.08480402,
-           -0.02437272, -0.08380255, -0.07583493, -0.04925583, -0.08572036], [-0.30725476,  0.30250286, -0.27807743, -0.32725684,  0.30814015,
-           -0.30385317,  0.28011996,  0.31519118, -0.28410316,  0.30227038]])
+    a = np.array([[5.704978663144137, 5.6725052661433235, 5.441349806741868, 0.0, 0.0, 5.447274267945885, 0.0, 5.337731717958393, 5.304539129759923, 0.0, 0.0, 5.627774854167119, 0.0, 5.404477135633962, 0.0, 5.317173515716561, 0.0, 5.243865710439962, 0.0, 0.0, 5.437848537307963, 0.0, 0.0, 5.398077522551578, 0.0]])
     
-    b = np.array([[-0.23947243,  0.25006803, -0.00070004,  0.13581317,  0.24314911,
-           -0.01081268,  0.24520788,  0.24411459,  0.17961772,  0.23303293]])
+    w = np.array([[ 0.0176298 , -0.09600292,  0.01791177,  0.01759975, -0.1014484,  0.00623568, -0.10340144, -0.08959691,  0.00311199, -0.10301925], 
+          [ 0.0178451 , -0.09555231,  0.01801215,  0.01786708, -0.0984683,  0.00554143, -0.10257039, -0.08870446,  0.00311527, -0.10161922], 
+          [ 0.0183559 , -0.09405028,  0.01773849,  0.01790214, -0.0966749,  0.00578105, -0.09930253, -0.08563243,  0.00101286, -0.09983591], 
+          [ 0.01076109, -0.00861482,  0.01153643,  0.01144243, -0.0081826, -0.00823844, -0.00813569,  0.01065884, -0.00991703, -0.00984071], 
+          [ 0.01039345, -0.00882974,  0.01105837,  0.01200073, -0.0092506, -0.00811234, -0.0097542 ,  0.0112151 , -0.0092461 , -0.00959542], 
+          [ 0.01770807, -0.09474378,  0.01705367,  0.01699269, -0.0991171,  0.00666818, -0.10118577, -0.08680445,  0.00121563, -0.09956204], 
+          [ 0.01004713, -0.00855991,  0.01113328,  0.01182283, -0.0094490, -0.00894403, -0.00930715,  0.01013194, -0.0088655 , -0.00981463], 
+          [ 0.01829557, -0.09299499,  0.01724751,  0.01795049, -0.0991419,  0.0052628 , -0.09970061, -0.08690403,  0.00156926, -0.09933553], 
+          [ 0.01815642, -0.09410143,  0.01785061,  0.01684889, -0.0980485,  0.00602151, -0.09942808, -0.08763173,  0.00126278, -0.10068859], 
+          [-0.31057145,  0.32015315, -0.32552139, -0.33171226,  0.3166842, -0.33601308,  0.27049601,  0.33701218, -0.31632559,  0.31463527], 
+          [ 0.00907825, -0.0066739 ,  0.00825959, -0.00182697, -0.0002418, -0.01137223,  0.00331355,  0.01527324, -0.01226915, -0.0060197 ], 
+          [ 0.01808766, -0.0954443 ,  0.01760052,  0.01805486, -0.0997927,  0.00696104, -0.10152043, -0.08684483,  0.00315238, -0.10045347], 
+          [ 0.01171074, -0.00878651,  0.01048995,  0.01021481, -0.0090961, -0.00943181, -0.00875178,  0.01051114, -0.00824989, -0.00816469], 
+          [ 0.01817908, -0.09393514,  0.01789736,  0.01739167, -0.0992196,  0.00612223, -0.09934711, -0.08742991,  0.00154475, -0.10048707], 
+          [ 0.01013429, -0.00809733,  0.01021982,  0.01059921, -0.0110676, -0.00873715, -0.00827329,  0.01116659, -0.00985555, -0.00834807], 
+          [ 0.01798062, -0.09396025,  0.01670088,  0.01780988, -0.1001718,  0.00517511, -0.09948576, -0.08780806,  0.00207816, -0.10032192], 
+          [ 0.00988505, -0.00695874,  0.01086016,  0.00559781, -0.0147819, -0.00840829, -0.00858335,  0.01236246, -0.01021851, -0.01029805], 
+          [ 0.01854431, -0.09138085,  0.01812776,  0.01700263, -0.0965811,  0.00448162, -0.09749243, -0.08450287,  0.00127507, -0.09810267], 
+          [ 0.0105087 , -0.00873558,  0.01134659,  0.01147669, -0.0083656, -0.00987092, -0.00910778,  0.0105415 , -0.00808708, -0.00848179], 
+          [ 0.00710186, -0.00134638,  0.00248874, -0.00714306,  0.0088162, -0.01237526,  0.0071054 ,  0.01544465, -0.01317186,  0.00051594], 
+          [ 0.01812275, -0.09290051,  0.01778887,  0.01726438, -0.0991372,  0.00483826, -0.09978262, -0.08541523,  0.00250114, -0.09980818], 
+          [ 0.01071178, -0.00947083,  0.01011887,  0.0109893 , -0.0100255, -0.00809682, -0.00899316,  0.01062075, -0.00952626, -0.00911173], 
+          [ 0.01048941, -0.00849828,  0.01075499,  0.01065694, -0.0087023, -0.00847548, -0.00987339,  0.0103526 , -0.0080393 , -0.00911676], 
+          [ 0.01809798, -0.09437516,  0.01698723,  0.01778928, -0.0991244,  0.00546793, -0.10041516, -0.086998  ,  0.00253734, -0.09924498], 
+          [-0.31021636,  0.32246735, -0.32660415, -0.33309632,  0.3144542, -0.33452494,  0.27608805,  0.33464105, -0.3131086 ,  0.31446892]])
+    
+    b = np.array([[-0.2670652 ,  0.26470863,  0.09646136,  0.15517183,  0.25665678,
+           -0.04831743,  0.25673403,  0.25377899,  0.1602995 ,  0.23992642]])
                                                                               
     l = Linear(25, 10, activation="softmax")
     l.w = w
@@ -454,7 +476,163 @@ class Dropout():
         d_Layer = self.derivative(curr_mask, training=training)
         prev_dA = d_Layer * dA
         return prev_dA
+    
+    
+class BatchNorm():
+    def __init__(self, sample_dim, momentum=0.9, epsilon=1e-8):
+        '''
+        Batch normalization Layer.
 
+        Parameters
+        ----------
+        
+
+
+        '''
+        self.epsilon = epsilon
+        self.momentum = momentum
+        self.sample_dim = sample_dim
+        
+        self.gamma = np.random.randn(1, self.sample_dim)
+        self.beta = np.zeros((1, self.sample_dim))
+        self.running_mean = np.zeros((1, self.sample_dim))
+        self.running_variance = np.zeros((1, self.sample_dim))
+        
+        self.trainable = True
+        
+    def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to Batch normalization Layers.
+
+        '''
+        return "OrionML.Layer.BatchNorm"
+        
+    def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the Batch normalization Layer with information about dropout probability.
+
+        '''
+        return "OrionML.Layer.BatchNorm"
+        
+    def value(self, x, training=False):
+        '''
+        
+        Parameters
+        ----------
+        x : ndarray, shape: (input size, output size)
+            Input for the batch normalization.
+        training : bool, optional
+            Whether the Layer is currently in training or not. If training is False, no dropout 
+            is applied. The default is False.
+
+        Returns
+        -------
+        res : ndarray, shape: (input size, output size)
+            Output of the batch normalization layer.
+
+        '''
+        if training==True:
+            mean = np.mean(x, axis=0)
+            variance = np.var(x, axis=0)
+            x_normalized = (x-mean)/np.sqrt(variance + self.epsilon)
+            
+            out = self.gamma*x_normalized + self.beta
+                    
+            return out, x_normalized, mean, variance
+        
+        elif training==False:
+            x_normalized = (x-self.running_mean)/np.sqrt(self.running_variance + self.epsilon)
+            out = self.gamma*x_normalized + self.beta
+            
+            return out
+    
+    def forward(self, prev_A, training=False):
+        '''
+        Forward step of a Batch normalization Layer in a Neural Network.
+
+        Parameters
+        ----------
+        prev_A : ndarray, shape: (input size, output size)
+            Data before the current dropout Layer is applied.
+        training : bool, optional
+            Whether the Layer is currently in training or not. The default is False.
+
+        Returns
+        -------
+        curr_A : ndarray, shape: (input size, output size)
+            Data after the Batch normalization Layer is applied.
+        cache : tuple
+            Cache containing information needed in the backwards propagation. Its contents are:
+                DESCRIPTION.
+                
+        '''
+        if training==True:
+            curr_A, x_normalized, batch_mean, batch_variance = self.value(prev_A, training=training)
+            self.running_mean = self.momentum*self.running_mean + (1-self.momentum)*batch_mean
+            self.running_variance = self.momentum*self.running_variance + (1-self.momentum)*batch_variance
+            
+            cache = (prev_A, x_normalized, batch_mean, batch_variance)
+            
+        elif training==False:
+            curr_A = self.value(prev_A, training=training)
+        
+            cache = (prev_A)
+        
+        return curr_A, cache
+    
+    def backward(self, dA, cache, training=False):
+        '''
+        Backward step of a Batch normalization Layer in a Neural Network.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: (input size, output size)
+            Derivative of all Layers in the Neural Network starting after the current Layer.
+        cache : tuple
+            cache containing information from the forward propagation of the current dropout Layer. 
+            For its contens, refer to the return of self.forward.
+        training : bool, optional
+            Whether the Layer is currently in training or not. The default is False.
+
+        Returns
+        -------
+        prev_dA : ndarray, shape: (input size, output size)
+            Derivative of all Layers in the Neural Network starting from the current Layer.
+
+        '''
+        assert training, "Training should be True for backward propagation."
+        
+        prev_A, x_normalized, batch_mean, batch_variance = cache
+        
+        dgamma = np.sum(dA*x_normalized, axis=0, keepdims=True)
+        dbeta = np.sum(dA, axis=0, keepdims=True)
+        
+        m = prev_A.shape[0]
+        t = 1/np.sqrt(batch_variance + self.epsilon)
+        dx = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
+        
+        return dx, dgamma, dbeta
+    
+# %%
+
+if __name__ == "__main__":
+    l = BatchNorm(3)
+    
+    a = np.array([[0,1,2],[-1,4,3],[2,0,-1]])
+    da = np.array([[-3,-2,5], [1,1,2], [0,-2,3]])
+    
+    aw, c = l.forward(a, training=True)
+    dx, dg, db = l.backward(da, c, training=True)
+
+# %%
 
 class Pool():
     def __init__(self, kernel_size, stride, padding=0, pool_mode="max"):
@@ -588,50 +766,6 @@ class Pool():
         A_prev, A_w_cols, max_idx = cache
         dx = self.derivative(A_prev, dA, A_w_cols, max_idx, training=training)
         return dx
-
-# %%    
-
-if __name__ == "__main__":
-    a = np.array([[[[1, 1, 2, 4],
-                    [5, 6, 7, 8],
-                    [3, 2, 1, 0],
-                    [1, 2, 3, 4]], 
-                  
-                   [[3, 2, 7, 4],
-                    [8, 1, 4, 2],
-                    [3, 1, 1, 2],
-                    [5, 6, 2, 3]]]])
-    
-    l = Pool(3, 2, 0, pool_mode="max")
-    aw, c = l.value(a)
-    daw = l.backward(np.ones_like(aw), c)
-    
-# %%
-
-if __name__ == "__main__":
-    a = np.array([[[[1, 1, 2, 4],
-                    [5, 6, 7, 8],
-                    [3, 2, 1, 0],
-                    [1, 2, 3, 4]], 
-                  
-                   [[3, 2, 7, 4],
-                    [8, 1, 4, 2],
-                    [3, 1, 1, 2],
-                    [5, 6, 2, 3]]],
-                  
-                  [[[1, 1, 2, 4],
-                    [5, 2, 7, 1],
-                    [3, 2, 1, 0],
-                    [1, 2, 5, 4]], 
-                 
-                   [[3, 2, 1, 4],
-                    [1, 1, 4, 2],
-                    [4, 1, 1, 2],
-                    [5, 3, 2, 3]]]])
-    
-    l = Pool(2, 2, 0, pool_mode="max")
-    aw, c = l.value(a)
-    daw = l.backward(np.ones_like(aw), c)
 
 
 

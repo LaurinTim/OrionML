@@ -267,10 +267,32 @@ class NeuralNetwork():
         if tst and True:
             print(f"\nForward iteration {self.itf}:")
             
+            ppos = 2
+            print(curr_A[ppos])
+            print(activation.softmax().value(np.matmul(np.array([prev_A[ppos]]), self.sequential[layer_pos].w) + self.sequential[layer_pos].b)[0])
+            print(activation.softmax().value(np.matmul(prev_A, self.sequential[layer_pos].w) + self.sequential[layer_pos].b)[ppos])
+            print()
+            print(np.isnan(prev_A).any())
+            
+            found = False
+            for i in range(prev_A.shape[0]):
+                temp = activation.softmax().value(np.matmul(np.array([prev_A[i]]), self.sequential[layer_pos].w) + self.sequential[layer_pos].b)
+                if np.isnan(temp).any():
+                    print(prev_A[i])
+                    found = True
+                    
+            print(found)
+            print("\n"*2)
+            
+            '''
             for i in range(curr_A.shape[0]):
                 if np.isnan(curr_A[i]).any():
                     curr_A_nan = curr_A[i]
                     prev_A_nan = prev_A[i]
+                    print(curr_A_nan)
+                    print(self.sequential[layer_pos].forward(np.array([prev_A_nan]))[0])
+                    print(prev_A_nan)
+                    print()
                     break
             
             print("curr_A: ", list(curr_A_nan))
@@ -280,7 +302,7 @@ class NeuralNetwork():
             print("b: ", list(self.sequential[layer_pos].b))
             print(self.sequential[layer_pos].description())
             print(prev_A_nan.shape)
-            print(f"Forward iteration {self.itf}\n")
+            print(f"Forward iteration {self.itf}\n")'''
             
         assert not tst, "nan forward"
         
@@ -508,7 +530,7 @@ if __name__ == "__main__":
     seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
     #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="Adam", learning_rate=8e-4)
+    nn = NeuralNetwork(seq, optimizer="Adam", learning_rate=1e-3)
     
     nn.fit(train_X, train_y, epochs=10, batch_size=1024)
     

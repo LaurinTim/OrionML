@@ -296,7 +296,7 @@ class softmax():
             Values after the Softmax activation.
     
         '''
-        shifted_z = z-np.max(z)
+        shifted_z = z-np.max(z, axis=1, keepdims=True)
         exp_z = np.exp(shifted_z)
         return exp_z/(np.sum(exp_z, axis=1, keepdims=True))
     
