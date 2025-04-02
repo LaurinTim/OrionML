@@ -183,18 +183,18 @@ class Sequential():
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
                     #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
                     #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2
-                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2
+                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim) + 1
+                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim)
                     derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
                     derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
                     self.layers[i].gamma = parameters[f"gamma layer {i}"]
                     self.layers[i].beta = parameters[f"beta layer {i}"]
                     
         return parameters, derivatives
-        
+
 
 class NeuralNetwork():
-    def __init__(self, sequential, loss="mse", optimizer="gd", learning_rate=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8, verbose=False):
+    def __init__(self, sequential, loss="mse", optimizer="gradient_descent", learning_rate=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8, verbose=False):
         '''
         Create a Neural Network with Layers defined in a Sequential.
 
@@ -202,8 +202,27 @@ class NeuralNetwork():
         ----------
         sequential : OrionML.Sequential
             Sequential Object with the Layers of the Neural Network.
+        loss : str, optional
+            What loss function to use. Has to be one of the following: 
+                {mse, mae, mbe, cross_entropy, hinge, squared_hinge, L1loss, L2loss, huber}. 
+            The default is "mse".
+        optimizer : str, optional
+            What optimizer to use. Has to be one of the following:
+                {gradient_descent, adam}. 
+            The default is "gradient_descent".
         learning_rate : float, optional
             Learning rate of the Neural Network. The default is 1e-2.
+        beta1 : float, optional
+            Value of beta1 used in the adam optimizer. The default is 0.9.
+        beta2 : float, optional
+            Value of beta1 used in the adam optimizer. The default is 0.999.
+        epsilon : float, optional
+            Value of epsilon used in the adam optimizer. The default is 1e-8.
+        verbose : bool/int, optional
+            Whether the progress of the model should be displayed in the column. If set to an 
+            integer, it is the number of times that information about the training is shown 
+            during training. If set to False, no information is displayed. Setting verbose to 
+            True is equivalent to setting it to 10. The default is False.
 
         '''
         self.sequential = sequential
@@ -212,13 +231,13 @@ class NeuralNetwork():
         self.beta1 = beta1
         self.beta2 = beta2
         
-        if type(self.verbose) is int:
+        if type(verbose) is int:
             self.verbose = True
             self.verbose_num = verbose
         
         else:
             self.verbose = verbose
-            self.verbose_num = 0
+            self.verbose_num = 10 if self.verbose else 0
         
         self.optimizer_name = optimizer
         self.optimizer = self.__select_optimizer()
@@ -257,6 +276,15 @@ class NeuralNetwork():
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
     
     def __select_optimizer(self):
+        '''
+        Returns the optimizer associated with the input for optimizer to the class.
+
+        Returns
+        -------
+        OrionML.NeuralNetwork.optimizer
+            Optimizer used during the training.
+
+        '''
         if self.optimizer_name in ["Adam", "adam"]:
             self.m_dw, self.v_dw = 0, 0
             self.m_db, self.v_db = 0, 0
@@ -266,9 +294,18 @@ class NeuralNetwork():
             return self.gradient_descent
         
         else:
-            assert False, "Invalid input for optimizer, please choose one of {gradient_descent, Adam}."
+            assert False, "Invalid input for optimizer, please choose one of the following: {gradient_descent, Adam}."
             
     def __select_loss_function(self):
+        '''
+        Returns the loss function associated with the input for loss to the class.
+
+        Returns
+        -------
+        OrionML.Loss.function
+            Loss function.
+
+        '''
         if self.loss_name in ["mse"]:
             return Loss.mse()
         
@@ -295,6 +332,9 @@ class NeuralNetwork():
         
         elif self.loss_name in ["huber"]:
             return Loss.huber()
+        
+        else:
+            print("Invalid input for loss, please choose on of the following: {mse, mae, mbe, cross_entropy, hinge, squared_hinge, L1loss, L2loss, huber}.")
                                                     
     def forward_step(self, prev_A, layer_pos):
         '''
@@ -462,6 +502,15 @@ class NeuralNetwork():
         return
     
     def gradient_descent(self, grads) -> None:
+        '''
+        Gradient descent optimizer.
+
+        Parameters
+        ----------
+        grads : list, shape: (number of trainable Layers, 3)
+            List containing dA after each trainable layer and dw and db for each trainable layer.
+
+        '''
         layer_pos = 0
         train_pos = 0
         
@@ -487,6 +536,16 @@ class NeuralNetwork():
         return
     
     def Adam(self, grads) -> None:
+        '''
+        Adam optimizer.
+
+        Parameters
+        ----------
+        grads : list, shape: (number of trainable Layers, 3)
+            List containing dA after each trainable layer followed by the derivations with 
+            respect to the trainable parameters of the layer.
+
+        '''
         layer_pos = 0
         train_pos = 0
         
@@ -516,7 +575,7 @@ class NeuralNetwork():
         
         return
     
-    def fit(self, x, y, epochs, batch_size=None, b1=0.9, b2=0.999):
+    def fit(self, x, y, epochs, batch_size=None, validation = None):
         '''
         Fit input data to a target.
 
@@ -533,6 +592,12 @@ class NeuralNetwork():
             whole training data is used at the same time. If the batch size does not 
             exactly divide the number of samples, the last batch is smaller than the 
             batch size. The default is None.
+        validation : None/list, optional
+            List containing the data for the validation at position 0 and the target of the 
+            validation at position 1. If set to None, no validation is displayed during training. 
+            If set to a list, each time information about the state of the model is displayed 
+            during training, information from the validation data is also displayed. The default 
+            is None.
 
         '''
         self.itf = 0
@@ -572,10 +637,24 @@ class NeuralNetwork():
             self.times.append(time()-start_time)
                             
             self.J_h.append(AL)
-            if self.verbose and (i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0:
+            if self.verbose and ((i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0):
                 #pred = np.array([np.random.multinomial(1,val) for val in self.sequential(x, training=True)])
                 #print(f"Iteration {i+1:4}: Cost {self.loss_function.value(y, pred):8.4}")
-                print(f"Iteration {i+1:4}: Cost {AL:8.10}")
+                if not validation is None:
+                    pred_val = np.array([np.random.multinomial(1,val) for val in self.sequential(validation[0])])
+                    same_arr_val = np.array([np.array_equal(validation[1][i], pred_val[i]) for i in range(len(validation[1]))])
+                    acc_val = np.sum(same_arr_val)/len(validation[1])
+                    
+                    pred_train = np.array([np.random.multinomial(1,val) for val in self.sequential(x)])
+                    same_arr_train = np.array([np.array_equal(y[i], pred_train[i]) for i in range(len(y))])
+                    acc_train = np.sum(same_arr_train)/len(y)
+                    
+                    print(f"Iteration {i+1:4}:")
+                    print(f"Validation: Loss {self.loss_function.value(validation[1], pred_val):8.4}, accuracy {100*acc_val:2.1f}%.")
+                    print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4}, accuracy {100*acc_train:2.1f}%.\n")
+                
+                else:
+                    print(f"Iteration {i+1:4} training Loss: {AL:8.4}")
                         
         return
 
@@ -634,11 +713,22 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #This one works well (around 97% accuracy for validation after 100 epochs, 1e-2 learning rate and batch size 128.)
+    seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 128, activation="relu"), Layer.Dropout(0.3), Layer.Linear(128, 10, activation="softmax")])
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), 
+    #                  Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #This one does not work well at all. Does not get higher than around 70% accuracy for the validation and training data. (Why? A more complex nn should at least increase the accuracy for the training data.)
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 256, activation="relu"), Layer.Dropout(0.3), Layer.Linear(256, 128, activation="relu"), 
+    #                  Layer.Dropout(0.3), Layer.Linear(128, 64, activation="relu"), Layer.Dropout(0.3), Layer.Linear(64, 32, activation="relu"), 
+    #                  Layer.Dropout(0.3), Layer.Linear(32, 16, activation="relu"), Layer.Dropout(0.3), Layer.Linear(16, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, loss="hinge", optimizer="adam", learning_rate=1e-2)
+    nn = NeuralNetwork(seq, loss="hinge", optimizer="adam", learning_rate=1e-2, verbose=10)
     
-    nn.fit(train_X, train_y, epochs=500, batch_size=None)
+    nn.fit(train_X, train_y, epochs=100, batch_size=128, validation=[val_X, val_y])
+    
+# %%
+
+nn.fit(train_X, train_y, epochs=10, batch_size=128, validation=[val_X, val_y])
         
 # %%
 
@@ -649,7 +739,7 @@ if __name__ == "__main__":
     wrong = len(val_y)-np.sum(same)
     acc = np.sum(same)/len(val_y)
     loss = Loss.hinge().value(val_y, pred)
-    print(f"Validation data tests: {wrong:4.0f}, {acc:0.4f}, {loss:0.4f}")
+    print(f"Validation data tests: {wrong:4.0f}, {loss:0.4f}, {acc:0.4f}")
     
 # %%
 
@@ -661,7 +751,7 @@ if __name__ == "__main__":
     wrongt = len(train_y)-np.sum(samet)
     acct = np.sum(samet)/len(train_y)
     losst = Loss.hinge().value(train_y, predt)
-    print(f"Training data tests: {wrongt:5}, {acct:0.4}, {losst:0.4}")
+    print(f"Training data tests: {wrongt:5}, {losst:0.4}, {acct:0.4}")
 
 # %%
 
