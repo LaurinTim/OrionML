@@ -542,7 +542,230 @@ class BatchNorm():
         curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
         
         return curr_dA, dgamma, dbeta
+
+
+class Conv():
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True):
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.bias = bias
+        
+        self.trainable = True
+        self.dimensions = np.array([self.out_channels, self.in_channels, self.kernel_size, self.kernel_size])
+        
+        self.w = np.zeros((self.out_channels, self.in_channels, self.kernel_size, self.kernel_size))
+        self.b = None
+        
+    def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to convolutional Layers.
+
+        '''
+        return "OrionML.Layer.Conv"
+        
+    def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the convolutional Layer with information about the input and output 
+            channels, the kernel size, the stride and the padding.
+
+        '''
+        return f"OrionML.Layer.Conv  (shape:({self.out_channels, self.in_channels, self.kernel_size, self.kernel_size}), stride: {self.stride}, padding: {self.padding})"
+            
+    def update_parameters(self, w_new, b_new=None):
+        '''
+        Updade the weights and bias of the current Layer.
+
+        Parameters
+        ----------
+        w_new : ndarray, shape: (self.out_channels, self.in_channels, self.kernel_size, self.kernel_size)
+            New weights to replace the current ones of the linear Layer.
+        b_new : ndarray/None, optional, shape: (self.out_channels, self.kernel_size, self.kernel_size)
+            New bias to replace the current one of the linear Layer. If self.bias is set to False 
+            this must be None, otherwise a ndarray. The default is None.
+
+        '''
+        assert not (self.bias==True and b_new is None), "ERROR: Expected a bias when updating the parameters."
+        assert not (self.bias == False and not b_new is None), "ERROR: This Layer has no bias but a new bias was passed along."
+        
+        self.w = w_new
+        if self.bias==True: self.b = b_new
+        
+        return
     
+    def get_bias(self, input_shape) -> None:
+        self.b = np.zeros(input_shape[1], (input_shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1, (input_shape[3] + 2*self.padding - self.kernel_size)/self.stride + 1)
+        return
+        
+    def value(self, x, training=None):
+        '''
+        Pass an input to the linear Layer to get the output after the weights, bias and 
+        activation function is applied.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, self.dim1)
+            Input data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        ndarray, shape: (number of samples, self.dim2)
+            Array after the weights, bias and activation function of the linear Layer are 
+            applied to the input data.
+        z : ndarray, shape: (number of samples, self.dim2)
+            Array after the weights and bias of the linear Layer are applied to the input data.
+
+        '''
+        if self.b is None:
+            self.get_bias(x.shape)
+        
+        return
+    
+    def derivative(self, x, training=None):
+        '''
+        Get the derivative of the activation function for the values after applying the 
+        weights and bias of the linear Layer to the input data.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, self.dim1)
+            Input data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        d_activ : ndarray, shape: (input size, output size, output size)
+            Derivative of the activation function for the values after applying the 
+            weights and bias of the linear Layer to the input data.
+
+        '''
+        
+        return 
+    
+    def forward(self, prev_A, training=None):
+        '''
+        Forward step of a linear Layer in a Neural Network.
+
+        Parameters
+        ----------
+        prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
+            Data before the current linear Layer is applied.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for linear 
+            Layers. The default is None.
+
+        Returns
+        -------
+        curr_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim2)
+            Data after the current linear Layer is applied.
+        cache : tuple
+            Cache containing information needed in the backwards propagation. Its contents are:
+                prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
+                    Input for the current forward step.
+                self.w : ndarray, shape: (self.dim1, self.dim2)
+                    Weights of the current linear Layer.
+                self.b : ndarray, shape: (1, self.dim2)
+                    Bias of the current linear Layer. If the current Layer has no bias, an array 
+                    with shape contianing 0's is returned.
+                Z : ndarray, shape: (number of samples, self.dim2)
+                    Array after the weights and bias of the linear Layer are applied to the input data.
+
+        '''
+        
+        return
+    
+# %%
+
+if __name__ == "__main__":
+    #2 samples, 2 channels, height=width=3
+    a = np.array([[[[1,0,2],
+                    [3,3,1],
+                    [4,1,3]],
+                   [[5,2,0],
+                    [0,1,4],
+                    [4,0,4]]],
+                  
+                  [[[5,2,3],
+                    [0,0,2],
+                    [4,5,2]],
+                   [[1,4,4],
+                    [3,5,0],
+                    [0,2,1]]]])
+    
+    oc = 2
+    nc = 3
+    ks = 2
+    st = 1
+    p = 0
+    nh = (a.shape[2] + 2*p - ks)/st + 1
+    nw = (a.shape[3] + 2*p - ks)/st + 1
+    
+    w = np.ones(nc, oc, ks, ks)
+    b = np.zeros((nc, nh, nw))
+    
+# %%
+
+def value1(self, A, training=False):
+         '''
+         Apply pooling of type self.pool_mode to the input.
+         
+         Parameters
+         ----------
+         A : ndarray, shape: (input size, number of filters, dim1, dim2)
+             array to apply the pooling to the second dimension
+         training : bool/None, optional
+             Whether the Layer is currently in training or not. This has no effect for linear 
+             Layers. The default is None.
+ 
+         Returns
+         -------
+         res : ndarray, shape: (input size, output size)
+             Copy of activation_output but each element set to 0 with probability dropout_probability.
+ 
+         '''
+ # =============================================================================
+ #       As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
+ #       Dimension of A.strides will be 64/8=4. 
+ #       For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
+ #       The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
+ #       For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
+ #       The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
+ # =============================================================================
+         A_num_dims = A.ndim
+         
+         assert A_num_dims == 4, "Input to pooling layer has wrong number of dimensions. A needs 4 dimensions."
+         
+         A = np.pad(A, self.padding, mode="constant")
+         
+         output_shape = (A.shape[0], A.shape[1], (A.shape[2] + 2*self.padding - self.kernel_size) // self.stride + 1, (A.shape[3] + 2*self.padding - self.kernel_size) // self.stride + 1)
+         w_shape = (output_shape[0], output_shape[1], output_shape[2], output_shape[3], self.kernel_size, self.kernel_size)
+         w_strides = (A.strides[0], A.strides[1], self.stride*A.strides[2], self.stride*A.strides[3], A.strides[2], A.strides[3])
+         
+         A_w = np.lib.stride_tricks.as_strided(A, w_shape, w_strides)
+ 
+         if self.pool_mode=="max":
+             A_w = A_w.max(axis=(4, 5))
+         elif self.pool_mode=="avg":
+             A_w = A_w.mean(axis=(4, 5))
+         
+         return A_w
+
+# %%
 
 class Pool():
     def __init__(self, kernel_size, stride, padding=0, pool_mode="max"):
@@ -565,6 +788,8 @@ class Pool():
         self.stride = stride
         self.padding = padding
         self.pool_mode = pool_mode
+        
+        self.trainable = False
         
     def type(self):
         '''
