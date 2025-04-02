@@ -693,7 +693,7 @@ class Conv():
 
 if __name__ == "__main__":
     #2 samples, 2 channels, height=width=3
-    a = np.array([[[[1,0,2],
+    a = np.array([[[[2,0,2],
                     [3,3,1],
                     [4,1,3]],
                    [[5,2,0],
@@ -707,6 +707,7 @@ if __name__ == "__main__":
                     [3,5,0],
                     [0,2,1]]]])
     
+    ns = 2
     oc = 2
     nc = 3
     ks = 2
@@ -715,8 +716,21 @@ if __name__ == "__main__":
     nh = (a.shape[2] + 2*p - ks)/st + 1
     nw = (a.shape[3] + 2*p - ks)/st + 1
     
-    w = np.ones(nc, oc, ks, ks)
-    b = np.zeros((nc, nh, nw))
+    w = np.ones((nc, oc, ks, ks))
+    ww = w*np.array([[[[1]],[[1]]],[[[10]],[[10]]],[[[100]],[[100]]]])
+    '''w[:,0,0,1]=0
+    w[:,0,1,0]=0
+    w[:,1,0,0]=0
+    w[:,1,1,1]=0'''
+    
+    b = np.zeros((nc, int(nh), int(nw)))
+    
+# %%
+from scipy.signal import convolve
+
+if __name__ == "__main__":
+    c = convolve(a, ww)
+    cc = convolve(np.array([a[0]]), ww)
     
 # %%
 
