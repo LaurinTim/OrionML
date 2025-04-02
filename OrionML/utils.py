@@ -1,6 +1,8 @@
 import numpy as np
 import math
 import copy
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def train_test_split(arr, train=1, shuffle=True):
@@ -33,6 +35,45 @@ def train_test_split(arr, train=1, shuffle=True):
     train_arr, test_arr = np.split(arr, [split_pos])
     
     return train_arr, test_arr
+
+def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None, vmax3=None):
+    cmx_norm = 100*cmx / cmx.sum(axis=1, keepdims=True)
+    cmx_norm = np.around(cmx_norm, 2)
+    cmx_zero_diag = cmx_norm.copy()
+ 
+    np.fill_diagonal(cmx_zero_diag, 0)
+ 
+    fig, ax = plt.subplots(ncols=2)
+    fig.set_size_inches(12, 6)
+    [a.set_xticks(range(len(labels)), labels=labels, size=12) for a in ax]
+    [a.set_yticks(range(len(labels)), labels=labels, size=12) for a in ax]
+    [a.set_xlabel(xlabel="Predicted Label", size=13) for a in ax]
+    [a.set_ylabel(ylabel="True Label", size=13) for a in ax]
+    
+    for i in range(len(labels)):
+        for j in range(len(labels)):
+            if cmx_norm[i, j]>=np.max(cmx_norm)*0.6:
+                ax[0].text(j, i, cmx_norm[i, j], ha="center", va="center", c="black", size=10)
+            else:
+                ax[0].text(j, i, cmx_norm[i, j], ha="center", va="center", c="white", size=10)
+                
+            if cmx_zero_diag[i, j]>=np.max(cmx_zero_diag)*0.5:
+                ax[1].text(j, i, cmx_zero_diag[i, j], ha="center", va="center", c="black", size=10)
+            else:
+                ax[1].text(j, i, cmx_zero_diag[i, j], ha="center", va="center", c="white", size=10)
+         
+    im1 = ax[0].imshow(cmx_norm, vmax=vmax2)
+    ax[0].set_title('%', size=15)
+    im2 = ax[1].imshow(cmx_zero_diag, vmax=vmax3)
+    ax[1].set_title('% and 0 diagonal', size=15)
+ 
+    dividers = [make_axes_locatable(a) for a in ax]
+    cax1, cax2 = [divider.append_axes("right", size="5%", pad=0.1) 
+                        for divider in dividers]
+ 
+    fig.colorbar(im1, cax=cax1)
+    fig.colorbar(im2, cax=cax2)
+    fig.tight_layout()
 
 def im2col_indices(x, field_height, field_width, stride=1):
     # x: (N, C, H, W)
