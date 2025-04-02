@@ -169,10 +169,10 @@ class Sequential():
             if self.trainable_layers[i]==True:
                 curr_layer_type = self.layers[i].type()
                 if curr_layer_type=="OrionML.Layer.Linear":
-                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-2/np.sqrt(self.layer_dimensions[i][0])
+                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
                     derivatives[f"dw layer {i}"] = np.zeros((self.layer_dimensions[i][0], self.layer_dimensions[i][1]))
                     if self.bias_layers[i]==True:
-                        parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-2/np.sqrt(self.layer_dimensions[i][0])
+                        parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
                         derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
                         self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
                     else:
@@ -181,8 +181,10 @@ class Sequential():
                         self.layers[i].update_parameters(parameters[f"w layer {i}"])
                         
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
-                    parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2
+                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2
                     derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
                     derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
                     self.layers[i].gamma = parameters[f"gamma layer {i}"]
@@ -192,7 +194,7 @@ class Sequential():
         
 
 class NeuralNetwork():
-    def __init__(self, sequential, optimizer="gd", learning_rate=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8):
+    def __init__(self, sequential, loss="mse", optimizer="gd", learning_rate=1e-2, beta1=0.9, beta2=0.999, epsilon=1e-8, verbose=False):
         '''
         Create a Neural Network with Layers defined in a Sequential.
 
@@ -207,21 +209,30 @@ class NeuralNetwork():
         self.sequential = sequential
         self.learning_rate = learning_rate
         self.epsilon = epsilon
-        self.optimizer_name = optimizer
+        self.beta1 = beta1
+        self.beta2 = beta2
         
-        if optimizer in ["Adam", "adam"]:
-            self.optimizer = self.Adam
-            self.beta1 = beta1
-            self.beta2 = beta2
-            self.m_dw, self.v_dw = 0, 0
-            self.m_db, self.v_db = 0, 0
-            
-        elif optimizer in ["gradient descent", "gd"]:
-            self.optimizer = self.gradient_descent
+        if type(self.verbose) is int:
+            self.verbose = True
+            self.verbose_num = verbose
+        
+        else:
+            self.verbose = verbose
+            self.verbose_num = 0
+        
+        self.optimizer_name = optimizer
+        self.optimizer = self.__select_optimizer()
+        
+        self.loss_name = loss
+        self.loss_function = self.__select_loss_function()
         
         self.params, self.derivs = self.sequential.initialize_parameters()
         
         self.caches = []
+        
+        self.J_h = []
+        self.epoch = 0
+        self.times = []
                 
     def __str__(self):
         '''
@@ -232,7 +243,7 @@ class NeuralNetwork():
             Description of the Neural Network and the layers it contains.
 
         '''
-        return "Neural Network with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.sequential)
+        return f"Neural Network with {self.loss_name} Loss, {self.optimizer_name} optimizer and {self.sequential.num_layers} layers:\n" + "\n".join(val.description() for val in self.sequential)
     
     def __repr__(self):
         '''
@@ -244,7 +255,47 @@ class NeuralNetwork():
 
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
-                                        
+    
+    def __select_optimizer(self):
+        if self.optimizer_name in ["Adam", "adam"]:
+            self.m_dw, self.v_dw = 0, 0
+            self.m_db, self.v_db = 0, 0
+            return self.Adam
+            
+        elif self.optimizer_name in ["gradient descent", "gradient_descent", "gd"]:
+            return self.gradient_descent
+        
+        else:
+            assert False, "Invalid input for optimizer, please choose one of {gradient_descent, Adam}."
+            
+    def __select_loss_function(self):
+        if self.loss_name in ["mse"]:
+            return Loss.mse()
+        
+        elif self.loss_name in ["mae"]:
+            return Loss.mae()
+        
+        elif self.loss_name in ["mbe"]:
+            return Loss.mbe()
+        
+        elif self.loss_name in ["cross_entropy"]:
+            return Loss.cross_entropy()
+        
+        elif self.loss_name in ["hinge"]:
+            return Loss.hinge()
+        
+        elif self.loss_name in ["squared_hinge"]:
+            return Loss.squared_hinge()
+        
+        elif self.loss_name in ["L1loss"]:
+            return Loss.L1loss()
+        
+        elif self.loss_name in ["L2loss"]:
+            return Loss.L2loss()
+        
+        elif self.loss_name in ["huber"]:
+            return Loss.huber()
+                                                    
     def forward_step(self, prev_A, layer_pos):
         '''
         Evaluate a forward step over one Layer.
@@ -484,9 +535,6 @@ class NeuralNetwork():
             batch size. The default is None.
 
         '''
-        self.J_h = []
-        self.epoch = 0
-        self.times = []
         self.itf = 0
         self.itb = 0
         self.ita = 0
@@ -510,11 +558,9 @@ class NeuralNetwork():
             start_time = time()
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
-                
-                #AL = Loss.mse().value(curr_y, A)
-                #dAL = Loss.mse().derivative(curr_y, A)
-                AL = Loss.hinge().value(curr_y, A)
-                dAL = Loss.hinge().derivative(curr_y, A)
+                                
+                AL = self.loss_function.value(curr_y, A)
+                dAL = self.loss_function.derivative(curr_y, A)
                 
                 grads = self.backward(dAL, caches)
                 
@@ -526,10 +572,10 @@ class NeuralNetwork():
             self.times.append(time()-start_time)
                             
             self.J_h.append(AL)
-            if (i+1)% math.ceil(epochs/10) == 0 or i==0:
+            if self.verbose and (i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0:
                 #pred = np.array([np.random.multinomial(1,val) for val in self.sequential(x, training=True)])
-                #print(f"Iteration {i+1:4}: Cost {Loss.hinge().value(y, pred):8.4}")
-                print(f"Iteration {i+1:4}: Cost {AL:8.4}")
+                #print(f"Iteration {i+1:4}: Cost {self.loss_function.value(y, pred):8.4}")
+                print(f"Iteration {i+1:4}: Cost {AL:8.10}")
                         
         return
 
@@ -580,20 +626,20 @@ if __name__ == "__main__":
     np.random.seed(0)
     seq = Sequential([Layer.Linear(784, 128, activation="relu"), Layer.Linear(128, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="gd", learning_rate=1)
+    nn = NeuralNetwork(seq, optimizer="gd", learning_rate=1e-3)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=100)
+    nn.fit(train_X, train_y, epochs=50, batch_size=32)
     
 # %%
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="gradient descent", learning_rate=1)
+    nn = NeuralNetwork(seq, loss="hinge", optimizer="adam", learning_rate=1e-2)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=1000)
-
+    nn.fit(train_X, train_y, epochs=500, batch_size=None)
+        
 # %%
 
 if __name__ == "__main__":
@@ -616,6 +662,11 @@ if __name__ == "__main__":
     acct = np.sum(samet)/len(train_y)
     losst = Loss.hinge().value(train_y, predt)
     print(f"Training data tests: {wrongt:5}, {acct:0.4}, {losst:0.4}")
+
+# %%
+
+if __name__ == "__main__":
+    plt.scatter(np.arange(nn.epoch)[:200], nn.J_h[:200])
 
 # %%
 
