@@ -556,7 +556,7 @@ class Conv():
         self.trainable = True
         self.dimensions = np.array([self.out_channels, self.in_channels, self.kernel_size, self.kernel_size])
         
-        self.w = np.zeros((self.out_channels, self.in_channels, self.kernel_size, self.kernel_size))
+        self.w = np.zeros((self.kernel_size, self.kernel_size, self.out_channels, self.in_channels))
         self.b = None
         
     def type(self):
@@ -604,35 +604,40 @@ class Conv():
         return
     
     def get_bias(self, input_shape) -> None:
-        self.b = np.zeros(input_shape[1], (input_shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1, (input_shape[3] + 2*self.padding - self.kernel_size)/self.stride + 1)
+        self.b = np.zeros((input_shape[1], int((input_shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1), int((input_shape[3] + 2*self.padding - self.kernel_size)/self.stride + 1)))
         return
         
-    def value(self, x, training=None):
+    def value(self, A, training=None):
         '''
-        Pass an input to the linear Layer to get the output after the weights, bias and 
-        activation function is applied.
+        Pass an input to the convolutional Layer to get the output after the weights and bias  
+        are applied.
 
         Parameters
         ----------
-        x : ndarray, shape: (number of samples, self.dim1)
+        A : ndarray, shape: (number of samples, height, width, channels)
             Input data.
         training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for linear 
+            Whether the Layer is currently in training or not. This has no effect for convolutional 
             Layers. The default is None.
 
         Returns
         -------
-        ndarray, shape: (number of samples, self.dim2)
-            Array after the weights, bias and activation function of the linear Layer are 
-            applied to the input data.
-        z : ndarray, shape: (number of samples, self.dim2)
-            Array after the weights and bias of the linear Layer are applied to the input data.
+        output
 
         '''
         if self.b is None:
-            self.get_bias(x.shape)
+            self.get_bias(A.shape)
+            
+        h_out = int((A.shape[1] + 2*self.padding - self.kernel_size)/self.stride + 1)
+        w_out = int((A.shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1)
         
-        return
+        A_strided = np.lib.stride_tricks.as_strided(A, (A.shape[0], h_out, w_out, self.A.shape[0], self.w.shape[1], A.shape[3]), A.strides[:3] + A.strides[1:])
+        
+        output = np.tensordot(A_strided, self.w, axes=3)
+        
+        cache = (A)
+        
+        return output, cache
     
     def derivative(self, x, training=None):
         '''
@@ -733,6 +738,7 @@ if __name__ == "__main__":
     nw = (a.shape[3] + 2*p - ks)/st + 1
     
     w = np.ones((ks, ks, oc, nc))
+    w[0][0][0][0] = 0
     ww = w*np.array([[[[1,10,100],[1,10,100]],[[1,10,100],[1,10,100]]],[[[1,10,100],[1,10,100]],[[1,10,100],[1,10,100]]]])
     '''w[:,0,0,1]=0
     w[:,0,1,0]=0
@@ -751,6 +757,13 @@ if __name__ == "__main__":
     
     r = np.einsum('abcijk,ijkd', aa, w)
     rr = np.tensordot(aa, w, axes=3)
+    
+# %%
+
+if __name__ == "__main__":
+    l = Conv(2, 3, 2)
+    l.w = w
+    rl = l.value(a)
     
 # %%
 
