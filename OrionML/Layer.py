@@ -707,6 +707,22 @@ if __name__ == "__main__":
                     [3,5,0],
                     [0,2,1]]]])
     
+    a = np.array([[[[2,5],[0,2],[2,3]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    a = np.array([[[[2,5],[0,2],[2,3]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
     ns = 2
     oc = 2
     nc = 3
@@ -716,8 +732,8 @@ if __name__ == "__main__":
     nh = (a.shape[2] + 2*p - ks)/st + 1
     nw = (a.shape[3] + 2*p - ks)/st + 1
     
-    w = np.ones((nc, oc, ks, ks))
-    ww = w*np.array([[[[1]],[[1]]],[[[10]],[[10]]],[[[100]],[[100]]]])
+    w = np.ones((ks, ks, oc, nc))
+    ww = w*np.array([[[[1,10,100],[1,10,100]],[[1,10,100],[1,10,100]]],[[[1,10,100],[1,10,100]],[[1,10,100],[1,10,100]]]])
     '''w[:,0,0,1]=0
     w[:,0,1,0]=0
     w[:,1,0,0]=0
@@ -726,11 +742,15 @@ if __name__ == "__main__":
     b = np.zeros((nc, int(nh), int(nw)))
     
 # %%
-from scipy.signal import convolve
 
 if __name__ == "__main__":
-    c = convolve(a, ww)
-    cc = convolve(np.array([a[0]]), ww)
+    Hout = a.shape[1] - w.shape[0] + 1
+    Wout = a.shape[2] - w.shape[1] + 1
+    
+    aa = np.lib.stride_tricks.as_strided(a, (a.shape[0], Hout, Wout, w.shape[0], w.shape[1], a.shape[3]), a.strides[:3] + a.strides[1:])
+    
+    r = np.einsum('abcijk,ijkd', aa, w)
+    rr = np.tensordot(aa, w, axes=3)
     
 # %%
 
