@@ -554,9 +554,9 @@ class Conv():
         self.bias = bias
         
         self.trainable = True
-        self.dimensions = np.array([self.out_channels, self.in_channels, self.kernel_size, self.kernel_size])
+        self.dimensions = np.array([self.kernel_size, self.kernel_size, self.in_channels, self.out_channels])
         
-        self.w = np.zeros((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
+        self.w = np.ones((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = None
         
     def type(self):
@@ -615,7 +615,7 @@ class Conv():
 
         Parameters
         ----------
-        A : ndarray, shape: (number of samples, height, width, channels)
+        A : ndarray, shape: (number of samples, height, width, in channels)
             Input data.
         training : bool/None, optional
             Whether the Layer is currently in training or not. This has no effect for convolutional 
@@ -638,12 +638,21 @@ class Conv():
         if self.b is None:
             self.get_bias(A.shape)
             
-        h_out = int((A.shape[1] + 2*self.padding - self.kernel_size)/self.stride + 1)
-        w_out = int((A.shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1)
+        h_out = (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1
+        w_out = (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1
         
-        A_strided = np.lib.stride_tricks.as_strided(A, (A.shape[0], h_out, w_out, self.w.shape[0], self.w.shape[1], A.shape[3]), A.strides[:3] + A.strides[1:])
-        #print(A_strided)
-        output = np.tensordot(A_strided, self.w, axes=3)
+        A_padded = np.copy(A)
+        
+        if self.padding > 0:
+            A_padded = np.pad(A_padded, pad_width=((0,), (self.padding,), (self.padding,), (0,)), mode="constant", constant_values=(0.,))
+        
+        batch_stride, kern_h_stride, kern_w_stride, channel_stride = A_padded.strides
+        strides = (batch_stride, self.stride*kern_h_stride, self.stride*kern_w_stride, kern_h_stride, kern_w_stride, channel_stride)
+        
+        A_strided = np.lib.stride_tricks.as_strided(A_padded, (A.shape[0], h_out, w_out, self.w.shape[0], self.w.shape[1], A.shape[3]), strides)
+        
+        #output = np.einsum('abcijk,ijkd', A_strided, self.w)
+        output = np.tensordot(A_strided, self.w, axes=3) + self.b
         
         cache = (A, A_strided)
         
@@ -656,7 +665,7 @@ class Conv():
 
         Parameters
         ----------
-        dA : ndarray, shape: (number of samples, height, width, channels)
+        dA : ndarray, shape: (number of samples, height, width, out channels)
             Upstream gradient.
         cache : tuple
             Cache containing information from the forwards propagation used in the backwards propagation.
@@ -670,31 +679,28 @@ class Conv():
         '''
         A, A_strided = cache
         
+        dA_padded = np.copy(dA)
         back_padding = self.kernel_size - 1 if self.padding==0 else self.padding
-        dA_padded = np.pad(dA, pad_width=((0,), (back_padding,), (back_padding,), (0,)), mode="constant", constant_values=(0.,))
+                
+        if self.stride > 1:
+            dA_padded = np.insert(dA, range(1, dA.shape[1]), 0, axis=1)
+            dA_padded = np.insert(dA_padded, range(1, dA.shape[2]), 0, axis=2)
+                
+        if back_padding > 0:
+            dA_padded = np.pad(dA_padded, pad_width=((0,), (back_padding,), (back_padding,), (0,)), mode="constant", constant_values=(0.,))
         
-        dA_strided = np.lib.stride_tricks.as_strided(dA_padded, (dA.shape[0], A.shape[1], A.shape[2], self.w.shape[0], self.w.shape[1], dA.shape[3]), dA_padded.strides[:3] + dA_padded.strides[1:])
+        batch_stride, kern_h_stride, kern_w_stride, channel_stride = dA_padded.strides
+        strides = (batch_stride, 1*kern_h_stride, 1*kern_w_stride, kern_h_stride, kern_w_stride, channel_stride)
+        
+        dA_strided = np.lib.stride_tricks.as_strided(dA_padded, (dA.shape[0], A.shape[1], A.shape[2], self.w.shape[0], self.w.shape[1], dA.shape[3]), strides)
         
         db = np.array([np.sum(dA, axis=(0, 1, 2))])
         
-        #dw = np.einsum('bhwkli,hwio->klio', A_strided, dA)
-        
-        tst1 = A_strided.sum(axis=0)
-        print("a")
-        print(A_strided.shape, dA.shape)
-        tst2 = np.tensordot(A_strided.sum(axis=0), dA, axes=([0, 1], [0, 1]))
-        print("b")
-        tst3 = np.diagonal(np.tensordot(A_strided.sum(axis=0), dA, axes=([0, 1], [0, 1])), axis1=2, axis2=3)
-        print("c")
-        tst4 = np.transpose(np.diagonal(np.tensordot(A_strided.sum(axis=0), dA, axes=([0, 1], [0, 1])), axis1=2, axis2=3), axes=(0,1,3,2))
-        print("d")
-        
-        dw = np.transpose(np.diagonal(np.tensordot(A_strided.sum(axis=0), dA, axes=([0, 1], [0, 1])), axis1=2, axis2=3), axes=(0,1,3,2))
-        print("SUCCESS!!")
+        #dw = np.einsum('bhwkli,bhwo->klio', A_strided, dA)
+        dw = np.tensordot(A_strided, dA, axes=([0,1,2], [0,1,2]))
         
         #dx = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)))
         dx = np.tensordot(dA_strided, np.rot90(self.w, 2, axes=(0,1)), axes=([3,4,5], [0,1,3]))
-        print("d")
         
         return db, dw, dx
     
@@ -738,25 +744,33 @@ if __name__ == "__main__":
     kernel_size = 3
     stride = 2
     padding = 1
-    batch_size = (4, 12, 10, in_channels)  # expected input size
-    dout_size = (4, 6, 5, out_channels)   # expected to match the size of the layer outputs
+    batch_size = (4, in_channels, 12, 10)  # expected input size
+    dout_size = (4, out_channels, 6, 5)   # expected to match the size of the layer outputs
 
     np.random.seed(42)  # for reproducibility
 
     x = np.random.random(batch_size)  # create data for forward pass
     dout = np.random.random(dout_size)  # create random data for backward
+    
+    xl = np.transpose(x, axes=(0,2,3,1))
+    doutl = np.transpose(dout, axes=(0,2,3,1))
+    '''
     print('x: ', x.shape)
-    print('d_out: ', dout.shape)
+    print('d_out: ', dout.shape)'''
     
     conv = Conv(in_channels, out_channels, kernel_size, stride, padding)
+    
+    conv_outl, c = conv.value(xl)
+    
+# %%
 
-    conv_out, c = conv.value(x)
-    dbl, dwl, dxl = conv.derivative(dout, c)
-
-    print('conv_out: ', conv_out.shape)
+if __name__ == "__main__":
+    dbl, dwl, dxl = conv.derivative(doutl, c)
+    '''
+    print('conv_out: ', conv_outl.shape)
     print('db: ', dbl.shape)
     print('dw: ', dwl.shape)
-    print('dx: ', dxl.shape)
+    print('dx: ', dxl.shape)'''
     
 # %%
 
