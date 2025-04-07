@@ -625,32 +625,40 @@ class Conv():
         output
 
         '''
+        # =============================================================================
+        #       As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
+        #       Dimension of A.strides will be 64/8=4. 
+        #       For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
+        #       The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
+        #       For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
+        #       The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
+        # =============================================================================
+        
         if self.b is None:
             self.get_bias(A.shape)
             
         h_out = int((A.shape[1] + 2*self.padding - self.kernel_size)/self.stride + 1)
         w_out = int((A.shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1)
         
-        A_strided = np.lib.stride_tricks.as_strided(A, (A.shape[0], h_out, w_out, self.A.shape[0], self.w.shape[1], A.shape[3]), A.strides[:3] + A.strides[1:])
-        
+        A_strided = np.lib.stride_tricks.as_strided(A, (A.shape[0], h_out, w_out, self.w.shape[0], self.w.shape[1], A.shape[3]), A.strides[:3] + A.strides[1:])
+        #print(A_strided)
         output = np.tensordot(A_strided, self.w, axes=3)
         
-        cache = (A)
+        cache = (A, A_strided)
         
         return output, cache
     
-    def derivative(self, x, training=None):
+    def derivative(self, dA, cache):
         '''
         Get the derivative of the activation function for the values after applying the 
         weights and bias of the linear Layer to the input data.
 
         Parameters
         ----------
-        x : ndarray, shape: (number of samples, self.dim1)
-            Input data.
-        training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
+        dA : ndarray, shape: (number of samples, height, width, channels)
+            Upstream gradient.
+        cache : tuple
+            Cache containing information from the forwards propagation used in the backwards propagation.
 
         Returns
         -------
@@ -659,8 +667,21 @@ class Conv():
             weights and bias of the linear Layer to the input data.
 
         '''
+        A, A_strided = cache
         
-        return 
+        back_padding = self.kernel_size - 1 if self.padding==0 else self.padding
+        dA_padded = np.pad(dA, pad_width=((0,), (back_padding,), (back_padding,), (0,)), mode="constant", constant_values=(0.,))
+        
+        dA_strided = np.lib.stride_tricks.as_strided(dA_padded, (dA.shape[0], A.shape[1], A.shape[2], self.w.shape[0], self.w.shape[1], dA.shape[3]), dA_padded.strides[:3] + dA_padded.strides[1:])
+        #print((dA.shape[0], A.shape[1], A.shape[2], self.w.shape[0], self.w.shape[1], dA.shape[3]))
+        #print(dA.strides[:3] + dA.strides[1:])
+        
+        db = np.array([np.sum(dA, axis=(0, 1, 2))])
+        print(A_strided.shape, dA.shape)
+        #dw = np.einsum('bhwkli,bhwo->okli', A_strided, dA)
+        dw = np.tensordot(A_strided, dA, axes=4)
+        
+        return db, dw
     
     def forward(self, prev_A, training=None):
         '''
@@ -697,6 +718,24 @@ class Conv():
 # %%
 
 if __name__ == "__main__":
+    al = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    dal = np.ones((2, 2, 2, 3))
+    
+    l = Conv(2, 3, 2)
+    l.w = np.ones((2,2,2,3))
+    rl, c = l.value(al)
+    drl = l.derivative(dal, c)
+    
+# %%
+
+if __name__ == "__main__":
     #2 samples, 2 channels, height=width=3
     a = np.array([[[[2,0,2],
                     [3,3,1],
@@ -712,7 +751,7 @@ if __name__ == "__main__":
                     [3,5,0],
                     [0,2,1]]]])
     
-    a = np.array([[[[2,5],[0,2],[2,3]],
+    a = np.array([[[[2,5],[0,2],[2,0]],
                    [[3,0],[3,1],[1,4]],
                    [[4,4],[1,0],[3,4]]],
                   
@@ -720,13 +759,7 @@ if __name__ == "__main__":
                    [[0,3],[0,5],[2,0]],
                    [[4,0],[5,2],[2,1]]]])
     
-    a = np.array([[[[2,5],[0,2],[2,3]],
-                   [[3,0],[3,1],[1,4]],
-                   [[4,4],[1,0],[3,4]]],
-                  
-                  [[[5,1],[2,4],[3,4]],
-                   [[0,3],[0,5],[2,0]],
-                   [[4,0],[5,2],[2,1]]]])
+    dal = np.ones((2, 2, 2, 3))
     
     ns = 2
     oc = 2
@@ -738,7 +771,7 @@ if __name__ == "__main__":
     nw = (a.shape[3] + 2*p - ks)/st + 1
     
     w = np.ones((ks, ks, oc, nc))
-    w[0][0][0][0] = 0
+    #w[0][0][0][0] = 0
     ww = w*np.array([[[[1,10,100],[1,10,100]],[[1,10,100],[1,10,100]]],[[[1,10,100],[1,10,100]],[[1,10,100],[1,10,100]]]])
     '''w[:,0,0,1]=0
     w[:,0,1,0]=0
@@ -763,7 +796,8 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     l = Conv(2, 3, 2)
     l.w = w
-    rl = l.value(a)
+    rl, c = l.value(a)
+    drl = l.derivative(dal, c)
     
 # %%
 
