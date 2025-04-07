@@ -151,6 +151,7 @@ class Linear():
                     print(np.max(z[350+i:350+i+2]))
                     print(np.max(z[350+i:350+i+2], axis=1, keepdims=True))
                     print("-"*50)
+                    
         return out, z
     
     def derivative(self, x, training=None):
@@ -608,7 +609,7 @@ class Conv():
         self.b = np.zeros((1, self.out_channels))
         return
         
-    def value(self, A, training=None):
+    def value(self, A):
         '''
         Pass an input to the convolutional Layer to get the output after the weights and bias  
         are applied.
@@ -617,9 +618,6 @@ class Conv():
         ----------
         A : ndarray, shape: (number of samples, height, width, in channels)
             Input data.
-        training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for convolutional 
-            Layers. The default is None.
 
         Returns
         -------
@@ -627,12 +625,12 @@ class Conv():
 
         '''
         # =============================================================================
-        #       As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
-        #       Dimension of A.strides will be 64/8=4. 
-        #       For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
-        #       The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
-        #       For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
-        #       The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
+        #  As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
+        #  Dimension of A.strides will be 64/8=4. 
+        #  For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
+        #  The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
+        #  For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
+        #  The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
         # =============================================================================
         
         if self.b is None:
@@ -654,14 +652,45 @@ class Conv():
         #output = np.einsum('abcijk,ijkd', A_strided, self.w)
         output = np.tensordot(A_strided, self.w, axes=3) + self.b
         
-        cache = (A, A_strided)
-        
-        return output, cache
+        return output, A_strided
     
-    def derivative(self, dA, cache):
+    def forward(self, prev_A, training=None):
         '''
-        Get the derivative of the activation function for the values after applying the 
-        weights and bias of the linear Layer to the input data.
+        Forward step of a convolutional Layer in a Neural Network.
+
+        Parameters
+        ----------
+        prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
+            Input data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for convolutional 
+            Layers. The default is None.
+
+        Returns
+        -------
+        curr_A : ndarray, shape: (number of samples, output height, output width, output channels)
+            Data after the convolutional Layer is applied.
+        cache : tuple
+            Cache containing information needed in the backwards propagation. Its contents are:
+                prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
+                    Input data.
+                self.w : ndarray, shape: (self.dim1, self.dim2)
+                    Weights of the current linear Layer.
+                self.b : ndarray, shape: (1, self.dim2)
+                    Bias of the current linear Layer. If the current Layer has no bias, an array 
+                    with shape contianing 0's is returned.
+                Z : ndarray, shape: (number of samples, self.dim2)
+                    Array after the weights and bias of the linear Layer are applied to the input data.
+
+        '''
+        curr_A, curr_A_strided = self.value(prev_A)
+        cache = prev_A, curr_A_strided
+        
+        return curr_A, cache
+    
+    def backward(self, dA, cache):
+        '''
+        Backward step for a convolutional Layer.
 
         Parameters
         ----------
@@ -700,41 +729,9 @@ class Conv():
         dw = np.tensordot(A_strided, dA, axes=([0,1,2], [0,1,2]))
         
         #dx = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)))
-        dx = np.tensordot(dA_strided, np.rot90(self.w, 2, axes=(0,1)), axes=([3,4,5], [0,1,3]))
+        curr_dA = np.tensordot(dA_strided, np.rot90(self.w, 2, axes=(0,1)), axes=([3,4,5], [0,1,3]))
         
-        return db, dw, dx
-    
-    def forward(self, prev_A, training=None):
-        '''
-        Forward step of a linear Layer in a Neural Network.
-
-        Parameters
-        ----------
-        prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
-            Data before the current linear Layer is applied.
-        training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
-
-        Returns
-        -------
-        curr_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim2)
-            Data after the current linear Layer is applied.
-        cache : tuple
-            Cache containing information needed in the backwards propagation. Its contents are:
-                prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
-                    Input for the current forward step.
-                self.w : ndarray, shape: (self.dim1, self.dim2)
-                    Weights of the current linear Layer.
-                self.b : ndarray, shape: (1, self.dim2)
-                    Bias of the current linear Layer. If the current Layer has no bias, an array 
-                    with shape contianing 0's is returned.
-                Z : ndarray, shape: (number of samples, self.dim2)
-                    Array after the weights and bias of the linear Layer are applied to the input data.
-
-        '''
-        
-        return
+        return curr_dA, db, dw
 
 # %%
 
@@ -760,12 +757,12 @@ if __name__ == "__main__":
     
     conv = Conv(in_channels, out_channels, kernel_size, stride, padding)
     
-    conv_outl, c = conv.value(xl)
+    conv_outl, c = conv.forward(xl)
     
 # %%
 
 if __name__ == "__main__":
-    dbl, dwl, dxl = conv.derivative(doutl, c)
+    dxl, dbl, dwl = conv.derivative(doutl, c)
     '''
     print('conv_out: ', conv_outl.shape)
     print('db: ', dbl.shape)
@@ -787,8 +784,8 @@ if __name__ == "__main__":
     
     l = Conv(2, 3, 2)
     l.w = np.ones((2,2,2,3))
-    rl, c = l.value(al)
-    drl = l.derivative(dal, c)
+    rl, c = l.forward(al)
+    drl = l.backward(dal, c)
     
 # %%
 
