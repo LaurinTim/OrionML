@@ -616,12 +616,15 @@ class Conv():
 
         Parameters
         ----------
-        A : ndarray, shape: (number of samples, height, width, in channels)
+        A : ndarray, shape: (number of samples, input height, input width, input channels)
             Input data.
 
         Returns
         -------
-        output
+        prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
+            Input data.
+        prev_A_strided : ndarray, shape: (number of samples, output height, output width, kernel size, kernel size, input channels)
+            Array containing the sliding windows of prev_A used for the convolution.
 
         '''
         # =============================================================================
@@ -649,7 +652,7 @@ class Conv():
         
         A_strided = np.lib.stride_tricks.as_strided(A_padded, (A.shape[0], h_out, w_out, self.w.shape[0], self.w.shape[1], A.shape[3]), strides)
         
-        #output = np.einsum('abcijk,ijkd', A_strided, self.w)
+        #output = np.einsum('abcijk,ijkd', A_strided, self.w) + self.b
         output = np.tensordot(A_strided, self.w, axes=3) + self.b
         
         return output, A_strided
@@ -674,17 +677,12 @@ class Conv():
             Cache containing information needed in the backwards propagation. Its contents are:
                 prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
                     Input data.
-                self.w : ndarray, shape: (self.dim1, self.dim2)
-                    Weights of the current linear Layer.
-                self.b : ndarray, shape: (1, self.dim2)
-                    Bias of the current linear Layer. If the current Layer has no bias, an array 
-                    with shape contianing 0's is returned.
-                Z : ndarray, shape: (number of samples, self.dim2)
-                    Array after the weights and bias of the linear Layer are applied to the input data.
+                prev_A_strided : ndarray, shape: (number of samples, output height, output width, kernel size, kernel size, input channels)
+                    Array containing the sliding windows of prev_A used for the convolution.
 
         '''
-        curr_A, curr_A_strided = self.value(prev_A)
-        cache = prev_A, curr_A_strided
+        curr_A, prev_A_strided = self.value(prev_A)
+        cache = prev_A, prev_A_strided
         
         return curr_A, cache
     
@@ -694,16 +692,19 @@ class Conv():
 
         Parameters
         ----------
-        dA : ndarray, shape: (number of samples, height, width, out channels)
+        dA : ndarray, shape: (number of samples, output height, output width, output channels)
             Upstream gradient.
         cache : tuple
             Cache containing information from the forwards propagation used in the backwards propagation.
 
         Returns
         -------
-        d_activ : ndarray, shape: (input size, output size, output size)
-            Derivative of the activation function for the values after applying the 
-            weights and bias of the linear Layer to the input data.
+        curr_dA : ndarray, shape: (number of samples, input height, input width, input channels)
+            Gradient to be passed as upstream gradient to the next layer in backwards propagation.
+        db : ndarray, shape: (1, input channels)
+            Gradient of the bias.
+        dw : ndarray, shape: (kernel size, kernel size, input channels, output channels)
+            Gradient of the weights.
 
         '''
         A, A_strided = cache
