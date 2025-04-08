@@ -809,6 +809,24 @@ if __name__ == "__main__":
 # %%
 
 if __name__ == "__main__":
+    al = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    dal = np.ones((2, 2, 2, 3))
+    
+    l = Conv(2, 3, 2, "linear")
+    l.w = np.ones((2,2,2,3))
+    arl, c = l.forward(al)
+    darl = l.backward(dal, c)
+    
+# %%
+
+if __name__ == "__main__":
     #2 samples, 2 channels, height=width=3
     a = np.array([[[[2,0,2],
                     [3,3,1],
