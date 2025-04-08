@@ -72,7 +72,7 @@ class relu():
             Derivative at the values with respect to a ReLU activation function.
     
         '''
-        return z>0
+        return z>=0
         #return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float), np.eye(z.shape[1]))
 
 class elu():
@@ -117,7 +117,7 @@ class elu():
             Derivative at the values with respect to a eLU activation function.
     
         '''
-        return np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z)
+        return np.array(z>=0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z)
         #return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z), np.eye(z.shape[1]))
 
 class leakyrelu():
@@ -162,7 +162,7 @@ class leakyrelu():
             Derivative at the values with respect to a Leaky ReLU activation function.
     
         '''
-        return np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float)
+        return np.array(z>=0, dtype=float) + self.alpha*np.array(z<0, dtype=float)
         #return np.einsum("ij,jk -> ijk", np.array(z>0, dtype=float) + self.alpha*np.array(z<0, dtype=float), np.eye(z.shape[1]))
 
 class softplus():
@@ -318,8 +318,41 @@ class softmax():
         res = -sz.reshape(sz.shape[0],-1,1) * sz.reshape(sz.shape[0],1,sz.shape[1])
         res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]))
         return res
+    
+# %%
 
+if __name__ == "__main__":
+    a = np.array([[[[-2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    f = linear()
+    r = f.value(a)
+    dr = f.derivative(a)
 
+# %%
+
+if __name__ == "__main__":
+    in_channels = 3
+    out_channels = 128
+    kernel_size = 3
+    stride = 2
+    padding = 1
+    batch_size = (4, in_channels, 12, 10)  # expected input size
+
+    np.random.seed(42)  # for reproducibility
+
+    x = np.random.random(batch_size)  # create data for forward pass
+    
+    x = np.transpose(x, axes=(0,2,3,1))
+    
+    f = linear()
+    r = f.value(x)
+    dr = f.derivative(x)
 
 
 

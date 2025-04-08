@@ -72,8 +72,7 @@ class Linear():
 
         Returns
         -------
-        Correct activation function class from OrionMl.activation. If the value of self.activation 
-        is not valid, an error is printed and a linear activation is used.
+        Correct activation function class from OrionMl.activation.
 
         '''
         if self.activation == "linear": return activ.linear()
@@ -85,8 +84,7 @@ class Linear():
         elif self.activation == "tanh": return activ.tanh()
         elif self.activation == "softmax": return activ.softmax()
         else:
-            print("ERROR: Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.")
-            return activ.linear()
+            assert False, "ERROR: Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}."
             
     def update_parameters(self, w_new, b_new=None):
         '''
@@ -239,11 +237,11 @@ class Linear():
         '''
         prev_A, curr_w, curr_b, curr_Z = cache
         d_activation = self.derivative(prev_A)
-        if self.activation == "softmax":
-            curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
+        if self.activation != "softmax":
+            curr_dA = dA * d_activation
             
         else:
-            curr_dA = dA * d_activation
+            curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
             
         curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
@@ -546,13 +544,16 @@ class BatchNorm():
 
 
 class Conv():
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True):
+    def __init__(self, in_channels, out_channels, kernel_size, activation, stride=1, padding=0, bias=True):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
         self.bias = bias
+        
+        self.activation = activation
+        self.activation_function = self.get_activation_function()
         
         self.trainable = True
         self.dimensions = np.array([self.kernel_size, self.kernel_size, self.in_channels, self.out_channels])
@@ -582,6 +583,26 @@ class Conv():
 
         '''
         return f"OrionML.Layer.Conv  (shape:({self.kernel_size, self.kernel_size, self.in_channels, self.out_channels}), stride: {self.stride}, padding: {self.padding})"
+    
+    def get_activation_function(self):
+        '''
+        Get the correct activation function from the string input activation.
+
+        Returns
+        -------
+        Correct activation function class from OrionMl.activation.
+
+        '''
+        if self.activation == "linear": return activ.linear()
+        elif self.activation == "relu": return activ.relu()
+        elif self.activation == "elu": return activ.elu()
+        elif self.activation == "leakyrelu": return activ.leakyrelu(alpha=self.alpha)
+        elif self.activation == "softplus": return activ.softplus()
+        elif self.activation == "sigmoid": return activ.sigmoid()
+        elif self.activation == "tanh": return activ.tanh()
+        else:
+            assert False, "ERROR: Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh}."
+            
             
     def update_parameters(self, w_new, b_new=None):
         '''
@@ -644,10 +665,12 @@ class Conv():
         
         A_strided = np.lib.stride_tricks.as_strided(A_padded, (A.shape[0], h_out, w_out, self.w.shape[0], self.w.shape[1], A.shape[3]), strides)
         
-        #output = np.einsum('abcijk,ijkd', A_strided, self.w) + self.b
-        output = np.tensordot(A_strided, self.w, axes=3) + self.b
+        #A_convoluted = np.einsum('abcijk,ijkd', A_strided, self.w) + self.b
+        A_convoluted = np.tensordot(A_strided, self.w, axes=3) + self.b
         
-        return output, A_strided
+        output = self.activation_function.value(A_convoluted)
+        
+        return output, (A_strided, A_convoluted)
     
     def forward(self, prev_A, training=None):
         '''
@@ -673,8 +696,8 @@ class Conv():
                     Array containing the sliding windows of prev_A used for the convolution.
 
         '''
-        curr_A, prev_A_strided = self.value(prev_A)
-        cache = prev_A, prev_A_strided
+        curr_A, (prev_A_strided, A_convoluted) = self.value(prev_A)
+        cache = (prev_A, prev_A_strided, A_convoluted)
         
         return curr_A, cache
     
@@ -699,7 +722,10 @@ class Conv():
             Gradient of the weights.
 
         '''
-        A, A_strided = cache
+        A, A_strided, A_convoluted = cache
+        
+        d_activ = self.activation_function.derivative(A_convoluted)
+        dA = d_activ * dA
         
         dA_padded = np.copy(dA)
         back_padding = self.kernel_size - 1 if self.padding==0 else self.padding
