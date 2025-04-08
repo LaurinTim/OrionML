@@ -558,7 +558,7 @@ class Conv():
         self.dimensions = np.array([self.kernel_size, self.kernel_size, self.in_channels, self.out_channels])
         
         self.w = np.ones((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
-        self.b = None
+        self.b = np.zeros((1, self.out_channels))
         
     def type(self):
         '''
@@ -581,7 +581,7 @@ class Conv():
             channels, the kernel size, the stride and the padding.
 
         '''
-        return f"OrionML.Layer.Conv  (shape:({self.out_channels, self.in_channels, self.kernel_size, self.kernel_size}), stride: {self.stride}, padding: {self.padding})"
+        return f"OrionML.Layer.Conv  (shape:({self.kernel_size, self.kernel_size, self.in_channels, self.out_channels}), stride: {self.stride}, padding: {self.padding})"
             
     def update_parameters(self, w_new, b_new=None):
         '''
@@ -602,11 +602,6 @@ class Conv():
         self.w = w_new
         if self.bias==True: self.b = b_new
         
-        return
-    
-    def get_bias(self, input_shape) -> None:
-        #self.b = np.zeros((input_shape[1], int((input_shape[2] + 2*self.padding - self.kernel_size)/self.stride + 1), int((input_shape[3] + 2*self.padding - self.kernel_size)/self.stride + 1)))
-        self.b = np.zeros((1, self.out_channels))
         return
         
     def value(self, A):
@@ -635,9 +630,6 @@ class Conv():
         #  For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
         #  The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
         # =============================================================================
-        
-        if self.b is None:
-            self.get_bias(A.shape)
             
         h_out = (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1
         w_out = (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1

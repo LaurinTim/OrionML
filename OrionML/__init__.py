@@ -132,7 +132,7 @@ class Sequential():
             self.trainable_layers.append(layer.trainable)
             if layer.trainable==True:
                 self.layer_dimensions.append(layer.dimension)
-                if layer.type()=="OrionML.Layer.Linear":
+                if layer.type() in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                     self.bias_layers.append(layer.bias)
                     self.param_pos.append(i)
                     self.activations.append(layer.activation)
@@ -178,6 +178,18 @@ class Sequential():
                     else:
                         parameters[f"b layer {i}"] = np.zeros((1,1))
                         derivatives[f"db layer {i}"] = np.zeros((1, 1))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
+                        
+                elif curr_layer_type=="OrionML.Layer.Conv":
+                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1], self.layer_dimensions[i][2], self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
+                    derivatives[f"dw layer {i}"] = np.zeros((self.layer_dimensions[i][0], self.layer_dimensions[i][1], self.layer_dimensions[i][2], self.layer_dimensions[i][3]))
+                    if self.bias_layers[i]==True:
+                        parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
+                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
+                    else:
+                        parameters[f"b layer {i}"] = np.zeros((1,1))
+                        derivatives[f"db layer {i}"] = np.zeros((1,1))
                         self.layers[i].update_parameters(parameters[f"w layer {i}"])
                         
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
@@ -286,8 +298,8 @@ class NeuralNetwork():
 
         '''
         if self.optimizer_name in ["Adam", "adam"]:
-            self.m_dw, self.v_dw = 0, 0
-            self.m_db, self.v_db = 0, 0
+            self.m_dw, self.v_dw = list(np.zeros((len(self.sequential), 1))), list(np.zeros((len(self.sequential), 1)))
+            self.m_db, self.v_db = list(np.zeros((len(self.sequential), 1))), list(np.zeros((len(self.sequential), 1)))
             return self.Adam
             
         elif self.optimizer_name in ["gradient descent", "gradient_descent", "gd"]:
@@ -306,35 +318,17 @@ class NeuralNetwork():
             Loss function.
 
         '''
-        if self.loss_name in ["mse"]:
-            return Loss.mse()
-        
-        elif self.loss_name in ["mae"]:
-            return Loss.mae()
-        
-        elif self.loss_name in ["mbe"]:
-            return Loss.mbe()
-        
-        elif self.loss_name in ["cross_entropy"]:
-            return Loss.cross_entropy()
-        
-        elif self.loss_name in ["hinge"]:
-            return Loss.hinge()
-        
-        elif self.loss_name in ["squared_hinge"]:
-            return Loss.squared_hinge()
-        
-        elif self.loss_name in ["L1loss"]:
-            return Loss.L1loss()
-        
-        elif self.loss_name in ["L2loss"]:
-            return Loss.L2loss()
-        
-        elif self.loss_name in ["huber"]:
-            return Loss.huber()
-        
+        if self.loss_name in ["mse"]: return Loss.mse()
+        elif self.loss_name in ["mae"]: return Loss.mae()
+        elif self.loss_name in ["mbe"]: return Loss.mbe()
+        elif self.loss_name in ["cross_entropy"]: return Loss.cross_entropy()
+        elif self.loss_name in ["hinge"]: return Loss.hinge()
+        elif self.loss_name in ["squared_hinge"]: return Loss.squared_hinge()
+        elif self.loss_name in ["L1loss"]: return Loss.L1loss()
+        elif self.loss_name in ["L2loss"]: return Loss.L2loss()
+        elif self.loss_name in ["huber"]: return Loss.huber()
         else:
-            print("Invalid input for loss, please choose on of the following: {mse, mae, mbe, cross_entropy, hinge, squared_hinge, L1loss, L2loss, huber}.")
+            assert False, "Invalid input for loss, please choose on of the following: {mse, mae, mbe, cross_entropy, hinge, squared_hinge, L1loss, L2loss, huber}."
                                                     
     def forward_step(self, prev_A, layer_pos):
         '''
@@ -467,7 +461,7 @@ class NeuralNetwork():
             curr_layer_type = self.sequential[i].type()
             curr_cache = caches[i]
             
-            if curr_layer_type == "OrionML.Layer.Linear":
+            if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                 dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dw, curr_db]] + grads
                 
@@ -517,7 +511,7 @@ class NeuralNetwork():
         for layer in self.sequential:
             if layer.trainable:
                 curr_layer_type = layer.type()
-                if curr_layer_type=="OrionML.Layer.Linear":
+                if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                     layer.w -= self.learning_rate * grads[1][train_pos]
                     layer.b -= self.learning_rate * grads[2][train_pos]
                     self.params[f"w layer {layer_pos}"] = layer.w
@@ -552,7 +546,7 @@ class NeuralNetwork():
         for layer in self.sequential:
             if layer.trainable:
                 curr_layer_type = layer.type()
-                if curr_layer_type=="OrionML.Layer.Linear":
+                if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                     self.m_dw[layer_pos] = (self.beta1*self.m_dw[layer_pos] + (1-self.beta1)*grads[1][train_pos])
                     self.m_db[layer_pos] = (self.beta1*self.m_db[layer_pos] + (1-self.beta1)*grads[2][train_pos])
                     self.v_dw[layer_pos] = (self.beta2*self.v_dw[layer_pos] + (1-self.beta2)*np.square(grads[1][train_pos]))
@@ -612,11 +606,6 @@ class NeuralNetwork():
         else:
             x_batches = [x[i:i+batch_size] for i in range(0, num_samples, batch_size)]
             y_batches = [y[i:i+batch_size] for i in range(0, num_samples, batch_size)]
-            
-            
-        if self.optimizer_name in ["Adam", "adam"]:
-            self.m_dw, self.v_dw = list(np.zeros((len(self.sequential), 1))), list(np.zeros((len(self.sequential), 1)))
-            self.m_db, self.v_db = list(np.zeros((len(self.sequential), 1))), list(np.zeros((len(self.sequential), 1)))
                 
         for i in range(epochs):
             self.epoch += 1
