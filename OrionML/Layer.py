@@ -545,6 +545,27 @@ class BatchNorm():
 
 class Conv():
     def __init__(self, in_channels, out_channels, kernel_size, activation, stride=1, padding=0, bias=True):
+        '''
+        Convolutional Layer.
+
+        Parameters
+        ----------
+        in_channels : int
+            DESCRIPTION.
+        out_channels : int
+            DESCRIPTION.
+        kernel_size : int
+            DESCRIPTION.
+        activation : str
+            DESCRIPTION.
+        stride : int, optional
+            DESCRIPTION. The default is 1.
+        padding : int, optional
+            DESCRIPTION. The default is 0.
+        bias : bool, optional
+            DESCRIPTION. The default is True.
+
+        '''
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
