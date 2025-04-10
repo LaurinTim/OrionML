@@ -205,7 +205,7 @@ class Linear():
                     Array after the weights and bias of the linear Layer are applied to the input data.
 
         '''
-        curr_A, Z = self.value(prev_A)
+        curr_A, Z = self.value(prev_A, training=training)
         cache = (prev_A, self.w, self.b, Z)
         
         return curr_A, cache
@@ -268,7 +268,6 @@ class Dropout():
         self.scale = scale
         
         self.trainable = False
-        self.conv = conv
         
     def type(self):
         '''
@@ -480,7 +479,7 @@ class BatchNorm():
         elif training==False:
             x_normalized = (x-self.running_mean)/np.sqrt(self.running_variance + self.epsilon)
             out = self.gamma*x_normalized + self.beta
-            
+                        
             return out, ()
     
     def forward(self, prev_A, training=False):
@@ -511,8 +510,8 @@ class BatchNorm():
             cache = (prev_A, x_normalized, batch_mean, batch_variance)
             
         elif training==False:
-            curr_A = self.value(prev_A, training=training)
-        
+            curr_A, _ = self.value(prev_A, training=training)
+            
             cache = (prev_A)
         
         return curr_A, cache
@@ -549,7 +548,9 @@ class BatchNorm():
         curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
         
         return curr_dA, dgamma, dbeta
-    
+
+
+
 # %%
 
 if __name__ == "__main__":
@@ -563,10 +564,11 @@ if __name__ == "__main__":
     
     da = np.ones_like(a)
     
-    d = Dropout(dropout_probability=0.5)
+    d = BatchNorm(sample_dim=3)
     ad, c = d.forward(a, training=True)
     dad = d.backward(da, c, training=True)
 
+# %%
 
 class Conv():
     def __init__(self, in_channels, out_channels, kernel_size, activation, stride=1, padding=0, flatten=False, bias=True):
