@@ -557,6 +557,8 @@ class Conv():
         Convolutional Layer.
         The shape of the weights is (kernel_size, kernel_size, in_channels, out_channels).
         The shape of the bias is (1, out_channels).
+        The last columns and rows of the input to the layer get ignored if the kernel does not 
+        fit nicely to the input data in the convolution.
 
         Parameters
         ----------
@@ -707,7 +709,7 @@ class Conv():
         output = self.activation_function.value(A_convoluted)
         
         if self.flatten:
-            self.flatten = False
+            output = output.reshape(output.shape[0], -1)
         
         return output, (A_strided, A_convoluted)
     
@@ -725,7 +727,8 @@ class Conv():
 
         Returns
         -------
-        curr_A : ndarray, shape: (number of samples, output height, output width, output channels)
+        curr_A : ndarray, shape: (number of samples, output height, output width, output channels) if not flatten,
+                                else (number of samples, output height*output width*output channels)
             Data after the convolutional Layer is applied.
         cache : tuple
             Cache containing information needed in the backwards propagation. Its contents are:
@@ -746,7 +749,8 @@ class Conv():
 
         Parameters
         ----------
-        dA : ndarray, shape: (number of samples, output height, output width, output channels)
+        dA : ndarray, shape: (number of samples, output height, output width, output channels) if not flatten, 
+                            else (number of samples, output height*output width*output channels)
             Upstream gradient.
         cache : tuple
             Cache containing information from the forwards propagation used in the backwards propagation.
@@ -762,6 +766,14 @@ class Conv():
 
         '''
         A, A_strided, A_convoluted = cache
+        
+        #If flatten is True, dA is of shape (number of samples, output height*output width*output channels), so dA needs to be reshaped to 
+        #(number of samples, output height, output width, output channels). The height and width of the output can be calculated with:
+        #output height = (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1
+        #output width = (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1
+        #where A is the input for the forward function in this layer called previously, saved as cache[0].
+        if self.flatten:
+            dA = dA.reshape(dA.shape[0], (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1, (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
         
         d_activ = self.activation_function.derivative(A_convoluted)
         dA = d_activ * dA
@@ -830,25 +842,7 @@ if __name__ == "__main__":
 # %%
 
 if __name__ == "__main__":
-    al = np.array([[[[2,5],[0,2],[2,0]],
-                   [[3,0],[3,1],[1,4]],
-                   [[4,4],[1,0],[3,4]]],
-                  
-                  [[[5,1],[2,4],[3,4]],
-                   [[0,3],[0,5],[2,0]],
-                   [[4,0],[5,2],[2,1]]]])
-    
-    dal = np.ones((2, 2, 2, 3))
-    
-    l = Conv(2, 3, 2)
-    l.w = np.ones((2,2,2,3))
-    rl, c = l.forward(al)
-    drl = l.backward(dal, c)
-    
-# %%
-
-if __name__ == "__main__":
-    al = np.array([[[[2,5],[0,2],[2,0]],
+    a = np.array([[[[2,5],[0,2],[2,0]],
                    [[3,0],[3,1],[1,4]],
                    [[4,4],[1,0],[3,4]]],
                   
@@ -860,7 +854,7 @@ if __name__ == "__main__":
     
     l = Conv(2, 3, 2, "linear")
     l.w = np.ones((2,2,2,3))
-    arl, c = l.forward(al)
+    arl, c = l.forward(a)
     darl = l.backward(dal, c)
     
 # %%
