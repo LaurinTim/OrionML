@@ -172,7 +172,8 @@ class Sequential():
                     parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
                     derivatives[f"dw layer {i}"] = np.zeros((self.layer_dimensions[i][0], self.layer_dimensions[i][1]))
                     if self.bias_layers[i]==True:
-                        parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
                         derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
                         self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
                     else:
@@ -464,6 +465,8 @@ class NeuralNetwork():
             if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                 dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dw, curr_db]] + grads
+                self.dbl += [curr_db]
+                self.dwl += [curr_dw]
                 
             elif curr_layer_type == "OrionML.Layer.Dropout":
                 dA = self.sequential[i].backward(curr_dA, curr_cache, training=True)
@@ -512,10 +515,28 @@ class NeuralNetwork():
             if layer.trainable:
                 curr_layer_type = layer.type()
                 if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
+                    arg = self.epoch<=10 and layer.dim2==10 and False
+                    num = 0
+                    pos = 436
+                    
+                    if False:
+                        print(np.argmax(grads[1][train_pos], axis=0))
+                    
+                    if arg:
+                        print(layer.w[pos][num])
+                        print(grads[1][train_pos][pos][num])
+                    
                     layer.w -= self.learning_rate * grads[1][train_pos]
                     layer.b -= self.learning_rate * grads[2][train_pos]
                     self.params[f"w layer {layer_pos}"] = layer.w
                     self.params[f"b layer {layer_pos}"] = layer.b
+                    
+                    if arg:
+                        print(layer.w[pos][num])
+                        print()
+                    
+                    self.bl += [layer.b]
+                    self.wl += [layer.w]
                 
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
                     layer.gamma -= self.learning_rate * grads[1][train_pos]
@@ -552,8 +573,14 @@ class NeuralNetwork():
                     self.v_dw[layer_pos] = (self.beta2*self.v_dw[layer_pos] + (1-self.beta2)*np.square(grads[1][train_pos]))
                     self.v_db[layer_pos] = (self.beta2*self.v_db[layer_pos] + (1-self.beta2)*np.square(grads[2][train_pos]))
                                     
-                    layer.w -= self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
-                    layer.b -= self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                    #layer.w -= self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                    #layer.b -= self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
+                    layer.w -= (self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
+                    layer.b -= (self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
+
+                    self.bl += [layer.b]
+                    self.wl += [layer.w]
+
                     self.params[f"w layer {layer_pos}"] = layer.w
                     self.params[f"b layer {layer_pos}"] = layer.b
                     
@@ -600,6 +627,13 @@ class NeuralNetwork():
         
         num_samples = x.shape[0]
         
+        self.value = batch_size if not batch_size is None else x.shape[0]
+        self.value = 1
+        self.dbl = []
+        self.dwl = []
+        self.bl = []
+        self.wl = []
+        
         if batch_size==None:
             x_batches = [x]
             y_batches = [y]
@@ -627,8 +661,6 @@ class NeuralNetwork():
                             
             self.J_h.append(AL)
             if self.verbose and ((i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0):
-                #pred = np.array([np.random.multinomial(1,val) for val in self.sequential(x, training=True)])
-                #print(f"Iteration {i+1:4}: Cost {self.loss_function.value(y, pred):8.4}")
                 if not validation is None:
                     pred_val = np.array([np.random.multinomial(1,val) for val in self.sequential(validation[0])])
                     same_arr_val = np.array([np.array_equal(validation[1][i], pred_val[i]) for i in range(len(validation[1]))])
@@ -676,18 +708,54 @@ if __name__ == "__main__":
     val_y = np.zeros((len(val_y_col), 10))
     for i in range(len(val_y)):
         val_y[i][val_y_col[i]] = 1
+        
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=1e-10, verbose=True)
+    
+    nn.fit(train_X, train_y, epochs=1000, batch_size=None, validation=[val_X, val_y])
     
 # %%
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
-    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 10, activation="softmax")])
     #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="Adam", loss="hinge", learning_rate=1e-6, verbose=True)
+    nn = NeuralNetwork(seq, optimizer="Adam", loss="hinge", learning_rate=5e-5, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=16, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=100, batch_size=None, validation=[val_X, val_y])
+        
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=1e-1, verbose=False)
+    
+    nn.fit(train_X, train_y, epochs=2, batch_size=None, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="Adam", loss="hinge", learning_rate=1e-3, verbose=20)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=128, validation=[val_X, val_y])
     
 # %%
 

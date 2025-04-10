@@ -37,6 +37,9 @@ def train_test_split(arr, train=1, shuffle=True):
     return train_arr, test_arr
 
 class StandardScaler:
+    def __init__(self):
+        return
+    
     def fit(self, arr):
         '''
 
@@ -47,11 +50,12 @@ class StandardScaler:
 
         Returns
         -------
-        Sets self.mean and self.std to the mean and standard deviation of tns.
+        Sets self.mean and self.std to the mean and standard deviation of the columns in arr.
 
         '''
-        self.mean = arr.mean(0, axis=0, keepdim=True)
-        self.std = arr.std(0, axis=0, keepdim=True)
+        self.mean = arr.mean(axis=0, keepdims=True)
+        self.std = arr.std(axis=0, keepdims=True)
+        
     def transform(self, arr):
         '''
 
@@ -66,9 +70,10 @@ class StandardScaler:
             Scaled array.
 
         '''
-        arr -= self.mean
-        arr /= (self.std + 1e-8)
+        arr = arr - self.mean
+        arr = arr/(self.std + 1e-8)
         return arr
+    
     def fit_transform(self, arr):
         '''
 
@@ -85,6 +90,61 @@ class StandardScaler:
         '''
         self.fit(arr)
         return self.transform(arr)
+    
+class MinMaxScaler:
+    def __init__(self):
+        return
+    
+    def fit(self, arr):
+        '''
+
+        Parameters
+        ----------
+        arr : ndarray
+            Data to scale.
+
+        Returns
+        -------
+        Sets self.min and self.max to the minimum and maximum of the columns of arr.
+
+        '''
+        self.min = arr.min(axis=0, keepdims=True)
+        self.std = arr.max(axis=0, keepdims=True)
+        
+    def transform(self, arr):
+        '''
+
+        Parameters
+        ----------
+        arr : ndarray
+            Data to scale.
+
+        Returns
+        -------
+        arr : ndarray
+            Scaled array.
+
+        '''
+        arr = (arr-self.min)/(self.max-self.min + 1e-8)
+        return arr
+    
+    def fit_transform(self, arr):
+        '''
+
+        Parameters
+        ----------
+        arr : ndarray
+            Data to scale.
+
+        Returns
+        -------
+        ndarray
+            Scaled array.
+
+        '''
+        self.fit(arr)
+        return self.transform(arr)
+    
 
 def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None, vmax3=None):
     cmx_norm = 100*cmx / cmx.sum(axis=1, keepdims=True)
