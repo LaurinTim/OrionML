@@ -351,64 +351,8 @@ class NeuralNetwork():
             documentation of the Layers.
 
         '''
-        self.itf+=1
         curr_A, cache = self.sequential[layer_pos].forward(prev_A, training=True)
-        
-        if self.itf==54 and False:
-            print(f"\nForward iteration {self.itf}:")
-            print(self.sequential[layer_pos].description())
-            print(curr_A)
-            print([list(val) for val in prev_A])
-            print()
-            print([list(val) for val in self.sequential[layer_pos].w])
-            print([list(val) for val in self.sequential[layer_pos].b])
-        
-        tst = np.isnan(curr_A).any()
-        if tst and False:
-            print(f"\nForward iteration: {self.itf}\n")
-            
-        if tst and True:
-            print(f"\nForward iteration {self.itf}:")
-            
-            ppos = 2
-            print(curr_A[ppos])
-            print(activation.softmax().value(np.matmul(np.array([prev_A[ppos]]), self.sequential[layer_pos].w) + self.sequential[layer_pos].b)[0])
-            print(activation.softmax().value(np.matmul(prev_A, self.sequential[layer_pos].w) + self.sequential[layer_pos].b)[ppos])
-            print()
-            print(np.isnan(prev_A).any())
-            
-            found = False
-            for i in range(prev_A.shape[0]):
-                temp = activation.softmax().value(np.matmul(np.array([prev_A[i]]), self.sequential[layer_pos].w) + self.sequential[layer_pos].b)
-                if np.isnan(temp).any():
-                    print(prev_A[i])
-                    found = True
                     
-            print(found)
-            print("\n"*2)
-            
-            '''
-            for i in range(curr_A.shape[0]):
-                if np.isnan(curr_A[i]).any():
-                    curr_A_nan = curr_A[i]
-                    prev_A_nan = prev_A[i]
-                    print(curr_A_nan)
-                    print(self.sequential[layer_pos].forward(np.array([prev_A_nan]))[0])
-                    print(prev_A_nan)
-                    print()
-                    break
-            
-            print("curr_A: ", list(curr_A_nan))
-            print("prev_A: ", list(prev_A_nan))
-            print()
-            print("W: ", list(self.sequential[layer_pos].w))
-            print("b: ", list(self.sequential[layer_pos].b))
-            print(self.sequential[layer_pos].description())
-            print(prev_A_nan.shape)
-            print(f"Forward iteration {self.itf}\n")'''
-            
-        assert not tst, "nan forward"
-        
         return curr_A, cache
     
     def forward(self, x):
@@ -455,9 +399,7 @@ class NeuralNetwork():
         '''
         grads = []
         
-        for i in reversed(range(self.sequential.num_layers)):
-            self.itb+=1
-            
+        for i in reversed(range(self.sequential.num_layers)):            
             curr_dA = dA
             curr_layer_type = self.sequential[i].type()
             curr_cache = caches[i]
@@ -474,12 +416,6 @@ class NeuralNetwork():
             elif curr_layer_type == "OrionML.Layer.BatchNorm":
                 dA, curr_dgamma, curr_dbeta = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dgamma, curr_dbeta]] + grads
-                
-            tst = np.isnan(dA).any()
-            if tst and False:
-                print(f"\nBackward iteration: {self.itb}\n")
-                
-            assert not tst, "nan backward"
                                         
         return [[val[0] for val in grads], [val[1] for val in grads], [val[2] for val in grads]]
     
@@ -573,8 +509,6 @@ class NeuralNetwork():
                     self.v_dw[layer_pos] = (self.beta2*self.v_dw[layer_pos] + (1-self.beta2)*np.square(grads[1][train_pos]))
                     self.v_db[layer_pos] = (self.beta2*self.v_db[layer_pos] + (1-self.beta2)*np.square(grads[2][train_pos]))
                                     
-                    #layer.w -= self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
-                    #layer.b -= self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon)
                     layer.w -= (self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
                     layer.b -= (self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
 
@@ -620,15 +554,9 @@ class NeuralNetwork():
             during training, information from the validation data is also displayed. The default 
             is None.
 
-        '''
-        self.itf = 0
-        self.itb = 0
-        self.ita = 0
-        
+        '''        
         num_samples = x.shape[0]
         
-        self.value = batch_size if not batch_size is None else x.shape[0]
-        self.value = 1
         self.dbl = []
         self.dwl = []
         self.bl = []
@@ -712,14 +640,21 @@ if __name__ == "__main__":
 # %%
 
 if __name__ == "__main__":
+    scaler = utils.StandardScaler()
+    train_X = scaler.fit_transform(train_X)
+    val_X = scaler.fit_transform(val_X)
+        
+# %%
+
+if __name__ == "__main__":
     np.random.seed(0)
     #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
     seq = Sequential([Layer.Linear(784, 10, activation="softmax")])
     #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=1e-10, verbose=True)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=5e-4, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=1000, batch_size=None, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=10, batch_size=None, validation=[val_X, val_y])
     
 # %%
 
