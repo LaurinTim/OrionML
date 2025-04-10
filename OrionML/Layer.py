@@ -263,12 +263,12 @@ class Dropout():
             Whether the remaining weights should be scaled by 1/dropout_probability.
             The default is True.
 
-
         '''
         self.dropout_probability = dropout_probability   
         self.scale = scale
         
         self.trainable = False
+        self.conv = conv
         
     def type(self):
         '''
@@ -298,7 +298,7 @@ class Dropout():
         
         Parameters
         ----------
-        activation_output : ndarray, shape: (input size, output size)
+        activation_output : ndarray
             Output after an activation function to pass through the dropout Layer.
         training : bool, optional
             Whether the Layer is currently in training or not. If training is False, no dropout 
@@ -306,9 +306,9 @@ class Dropout():
 
         Returns
         -------
-        res : ndarray, shape: (input size, output size)
+        res : ndarray, shape: activation_output.shape
             Copy of activation_output but each element set to 0 with probability dropout_probability.
-        mask : ndarray, shape: (input size, output size)
+        mask : ndarray, shape: activation_output.shape
             Is only returned if training is set to True. An array that is 0 at every element in 
             activation_output that was set to 0, otherwise 1.
 
@@ -316,7 +316,7 @@ class Dropout():
         if training==False:
             return activation_output, np.zeros(1)
         
-        mask = np.random.rand(activation_output.shape[0], activation_output.shape[1]) > self.dropout_probability
+        mask = np.random.rand(*activation_output.shape) > self.dropout_probability
         res = mask*activation_output
         if self.scale==True:
             res = res * 1/(1-self.dropout_probability)
@@ -391,12 +391,12 @@ class Dropout():
         prev_dA : ndarray, shape: (input size, output size)
             Derivative of all Layers in the Neural Network starting from the current Layer.
 
-        '''
+        '''        
         prev_A, curr_mask = cache
         d_Layer = self.derivative(curr_mask, training=training)
         prev_dA = d_Layer * dA
         return prev_dA
-    
+
     
 class BatchNorm():
     def __init__(self, sample_dim, momentum=0.9, epsilon=1e-8):
@@ -549,6 +549,23 @@ class BatchNorm():
         curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
         
         return curr_dA, dgamma, dbeta
+    
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    da = np.ones_like(a)
+    
+    d = Dropout(dropout_probability=0.5)
+    ad, c = d.forward(a, training=True)
+    dad = d.backward(da, c, training=True)
 
 
 class Conv():
@@ -828,6 +845,25 @@ if __name__ == "__main__":
     conv = Conv(in_channels, out_channels, kernel_size, stride, padding)
     
     conv_outl, c = conv.forward(xl)
+    
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    c = Conv(in_channels=2, out_channels=3, kernel_size=2, activation="linear")
+    
+    ac = c.value(a)
+    
+    d = Dropout(dropout_probability=0.5)
+    
+    ad = d.value(a, training=True)
     
 # %%
 
