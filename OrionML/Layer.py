@@ -23,7 +23,7 @@ class Linear():
         activation : str
             Activation to use for this Layer. The available activations are: 
             {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}.
-        bias : TYPE, optional
+        bias : TYPE, optional DOES NOT WORK YET
             Whether or not the Layer contains a bias. The default is True.
         alpha : float
             Only used if the activation is "leakyrelu". Slope of the leaky ReLU when z<0. 
@@ -405,8 +405,16 @@ class BatchNorm():
 
         Parameters
         ----------
-        
+        sample_dim : int
+            Number of features in the input data.
+        momentum : float, optional
+            Momentum used to calculate the running mean. The default is 0.9.
+        epsilon : float, optional
+            Epsilon value used to avoid division by 0. The default is 1e-8.
 
+        Returns
+        -------
+        None.
 
         '''
         self.epsilon = epsilon
@@ -544,26 +552,32 @@ class BatchNorm():
 
 
 class Conv():
-    def __init__(self, in_channels, out_channels, kernel_size, activation, stride=1, padding=0, bias=True):
+    def __init__(self, in_channels, out_channels, kernel_size, activation, stride=1, padding=0, flatten=False, bias=True):
         '''
         Convolutional Layer.
+        The shape of the weights is (kernel_size, kernel_size, in_channels, out_channels).
+        The shape of the bias is (1, out_channels).
 
         Parameters
         ----------
         in_channels : int
-            DESCRIPTION.
+            Number of channels in the input data.
         out_channels : int
-            DESCRIPTION.
+            Number of channels in the output data.
         kernel_size : int
-            DESCRIPTION.
+            Size of the kernel. The kernel is of shape (kernel_size, kernel_size).
         activation : str
-            DESCRIPTION.
+            Activation to use for this Layer. The available activations are: 
+                {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh}.
         stride : int, optional
-            DESCRIPTION. The default is 1.
+            Stride of the convolution. The default is 1.
         padding : int, optional
-            DESCRIPTION. The default is 0.
-        bias : bool, optional
-            DESCRIPTION. The default is True.
+            Padding used in the convolution. The default is 0.
+        flatten : bool, optional
+            Whether or not the output of the layer should be flattened. Has to be True if the 
+            following layer is a Linear layer. The default is False.
+        bias : bool, optional DOES NOT WORK YET
+            Whether or not the layer has a bias term. The default is True.
 
         '''
         self.in_channels = in_channels
@@ -571,6 +585,7 @@ class Conv():
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+        self.flatten = flatten
         self.bias = bias
         
         self.activation = activation
@@ -631,10 +646,10 @@ class Conv():
 
         Parameters
         ----------
-        w_new : ndarray, shape: (self.out_channels, self.in_channels, self.kernel_size, self.kernel_size)
-            New weights to replace the current ones of the linear Layer.
-        b_new : ndarray/None, optional, shape: (self.out_channels, self.kernel_size, self.kernel_size)
-            New bias to replace the current one of the linear Layer. If self.bias is set to False 
+        w_new : ndarray, shape: (self.kernel_size, self.kernel_size, self.in_channels, self.out_channels)
+            New weights to replace the current ones of the convolutional Layer.
+        b_new : ndarray/None, optional, shape: (1, self.out_channels)
+            New bias to replace the current one of the convolutional Layer. If self.bias is set to False 
             this must be None, otherwise a ndarray. The default is None.
 
         '''
@@ -690,6 +705,9 @@ class Conv():
         A_convoluted = np.tensordot(A_strided, self.w, axes=3) + self.b
         
         output = self.activation_function.value(A_convoluted)
+        
+        if self.flatten:
+            self.flatten = False
         
         return output, (A_strided, A_convoluted)
     
