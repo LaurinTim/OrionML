@@ -682,11 +682,12 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     np.random.seed(0)
     seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
     #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="Adam", learning_rate=1e-2)
+    nn = NeuralNetwork(seq, optimizer="Adam", loss="hinge", learning_rate=1e-6, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=100, batch_size=1024)
+    nn.fit(train_X, train_y, epochs=10, batch_size=16, validation=[val_X, val_y])
     
 # %%
 
