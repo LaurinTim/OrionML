@@ -574,6 +574,8 @@ class NeuralNetwork():
             start_time = time()
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
+                
+                print(np.array_equal(x, curr_x))
                                 
                 AL = self.loss_function.value(curr_y, A)
                 dAL = self.loss_function.derivative(curr_y, A)
@@ -600,10 +602,10 @@ class NeuralNetwork():
                     
                     print(f"Iteration {i+1:4}:")
                     print(f"Validation: Loss {self.loss_function.value(validation[1], pred_val):8.4}, accuracy {100*acc_val:2.1f}%.")
-                    print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4}, accuracy {100*acc_train:2.1f}%.\n")
+                    print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):8.4}, {AL:8.4}), accuracy {100*acc_train:2.1f}%.\n")
                 
                 else:
-                    print(f"Iteration {i+1:4} training Loss: {AL:8.4}")
+                    print(f"Iteration {i+1:4} training Loss: {AL:1.4}")
                         
         return
 
@@ -652,9 +654,9 @@ if __name__ == "__main__":
     seq = Sequential([Layer.Linear(784, 10, activation="softmax")])
     #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=5e-4, verbose=True)
+    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=6e-2, verbose=20)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=None, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=5, batch_size=None, validation=[val_X, val_y])
     
 # %%
 
@@ -751,7 +753,7 @@ if __name__ == "__main__":
     same = np.array([np.array_equal(val_y[i], pred[i]) for i in range(len(val_y))])
     wrong = len(val_y)-np.sum(same)
     acc = np.sum(same)/len(val_y)
-    loss = Loss.hinge().value(val_y, pred)
+    loss = Loss.cross_entropy().value(val_y, pred)
     print(f"Validation data tests: {wrong:4.0f}, {loss:0.4f}, {acc:0.4f}")
     
 # %%
@@ -763,7 +765,7 @@ if __name__ == "__main__":
     samet = np.array([np.array_equal(train_y[i], predt[i]) for i in range(len(train_y))])
     wrongt = len(train_y)-np.sum(samet)
     acct = np.sum(samet)/len(train_y)
-    losst = Loss.hinge().value(train_y, predt)
+    losst = Loss.cross_entropy().value(train_y, predt)
     print(f"Training data tests: {wrongt:5}, {losst:0.4}, {acct:0.4}")
 
 # %%
