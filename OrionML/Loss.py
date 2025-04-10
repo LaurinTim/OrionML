@@ -142,7 +142,10 @@ class cross_entropy():
             Cross Entropy Loss of the correct and predicted labels.
     
         '''
-        return - np.sum(y * np.log(y_pred) + (1 - y) * np.log(1 - y_pred)) / y.shape[0]
+        #print(np.min(y * np.log(y_pred)), np.max(y * np.log(y_pred)))
+        #print(np.min((1 - y) * np.log(1 - y_pred)), np.max((1 - y) * np.log(1 - y_pred)))
+        r = - np.sum(y * np.log(y_pred + 1e-8) + (1 - y) * np.log(1-y_pred + 1e-8)) / y.shape[0]
+        return r
     
     def derivative(self, y, y_pred):
         '''
@@ -160,7 +163,8 @@ class cross_entropy():
             Derivative of the Cross Entropy Loss of the correct and predicted labels.
     
         '''
-        return (y_pred-y) / (y.shape[0]*y_pred*(1-y_pred))
+        return (y_pred-y) / (y.shape[0]*y_pred*(1-y_pred) + 1e-8)
+    
 
 class hinge():
     def __init__(self):
