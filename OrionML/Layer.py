@@ -445,17 +445,17 @@ class BatchNorm():
         Returns
         -------
         str
-            Description of the Batch normalization Layer with information about dropout probability.
+            Description of the Batch normalization Layer with information about the number of input features.
 
         '''
-        return "OrionML.Layer.BatchNorm"
+        return f"OrionML.Layer.BatchNorm (number of input features: {self.sample_dim})"
         
     def value(self, x, training=False):
         '''
         
         Parameters
         ----------
-        x : ndarray, shape: (input size, output size)
+        x : ndarray, shape: (number of samples, number of features)
             Input for the batch normalization.
         training : bool, optional
             Whether the Layer is currently in training or not. If training is False, no dropout 
@@ -463,13 +463,13 @@ class BatchNorm():
 
         Returns
         -------
-        res : ndarray, shape: (input size, output size)
+        res : ndarray, shape: (number of samples, number of features)
             Output of the batch normalization layer.
 
         '''
         if training==True:
-            mean = np.mean(x, axis=0)
-            variance = np.var(x, axis=0)
+            mean = np.mean(x, axis=0, keepdims=True)
+            variance = np.var(x, axis=0, keepdims=True)
             x_normalized = (x-mean)/np.sqrt(variance + self.epsilon)
             
             out = self.gamma*x_normalized + self.beta
@@ -488,18 +488,25 @@ class BatchNorm():
 
         Parameters
         ----------
-        prev_A : ndarray, shape: (input size, output size)
+        prev_A : ndarray, shape: (number of samples, number of features)
             Data before the current dropout Layer is applied.
         training : bool, optional
             Whether the Layer is currently in training or not. The default is False.
 
         Returns
         -------
-        curr_A : ndarray, shape: (input size, output size)
+        curr_A : ndarray, shape: (number of samples, number of features)
             Data after the Batch normalization Layer is applied.
         cache : tuple
             Cache containing information needed in the backwards propagation. Its contents are:
-                DESCRIPTION.
+                prev_A : ndarray, shape: (number of samples, number of features)
+                    Input data.
+                x_normalized : ndarray, shape: (number of samples, input height, input width, input channels)
+                    Normalized input data, before gamma and beta are applied.
+                batch_mean : ndarray, shape: (1, number of features)
+                    Mean of the elements in each channel of prev_A.
+                batch_variance : ndarray, shape: (1, number of features)
+                    Variance of the elements in each channel of prev_A.
                 
         '''
         if training==True:
@@ -522,7 +529,7 @@ class BatchNorm():
 
         Parameters
         ----------
-        dA : ndarray, shape: (input size, output size)
+        dA : ndarray, shape: (number of samples, number of features)
             Derivative of all Layers in the Neural Network starting after the current Layer.
         cache : tuple
             cache containing information from the forward propagation of the current dropout Layer. 
@@ -532,8 +539,12 @@ class BatchNorm():
 
         Returns
         -------
-        prev_dA : ndarray, shape: (input size, output size)
+        prev_dA : ndarray, shape: (number of samples, number of features)
             Derivative of all Layers in the Neural Network starting from the current Layer.
+        dgamma : ndarray, shape: (1, number of features)
+            Gradient of gamma.
+        dbeta : ndarray, shape: (1, number of features)
+            Gradient of beta.
 
         '''
         assert training, "Training should be True for backward propagation."
@@ -550,25 +561,175 @@ class BatchNorm():
         return curr_dA, dgamma, dbeta
 
 
+class BatchNorm2D():
+    def __init__(self, channels, momentum=0.9, epsilon=1e-8):
+        '''
+        Batch normalization Layer for the output of a convolutional layer.
 
-# %%
+        Parameters
+        ----------
+        channels : int
+            Number of channels in the input data.
+        momentum : float, optional
+            Momentum used to calculate the running mean. The default is 0.9.
+        epsilon : float, optional
+            Epsilon value used to avoid division by 0. The default is 1e-8.
 
-if __name__ == "__main__":
-    a = np.array([[[[2,5],[0,2],[2,0]],
-                   [[3,0],[3,1],[1,4]],
-                   [[4,4],[1,0],[3,4]]],
-                  
-                  [[[5,1],[2,4],[3,4]],
-                   [[0,3],[0,5],[2,0]],
-                   [[4,0],[5,2],[2,1]]]])
+        Returns
+        -------
+        None.
+
+        '''
+        self.epsilon = epsilon
+        self.momentum = momentum
+        self.channels = channels
+        self.dimension = np.array([self.channels])
+        
+        self.gamma = np.random.randn(1, self.channels)
+        self.beta = np.zeros((1, self.channels))
+        self.running_mean = np.zeros((1, self.channels))
+        self.running_variance = np.zeros((1, self.channels))
+        
+        self.trainable = True
+        
+    def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to 2D Batch normalization Layers.
+
+        '''
+        return "OrionML.Layer.BatchNorm2D"
+        
+    def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the 2D Batch normalization Layer with information about the number of input channels.
+
+        '''
+        return f"OrionML.Layer.BatchNorm2D (input channels: {self.channels})"
+        
+    def value(self, x, training=False):
+        '''
+        
+        Parameters
+        ----------
+        x : ndarray, shape: (number of samples, input height, input width, input channels)
+            Input for the 2D batch normalization.
+        training : bool, optional
+            Whether the Layer is currently in training or not. If training is False, no dropout 
+            is applied. The default is False.
+
+        Returns
+        -------
+        res : ndarray, shape: (number of samples, input height, input width, input channels)
+            Output of the 2D batch normalization layer.
+
+        '''
+        #In Batch normalization for convolutional layers, the normalization should be performed over each channel
+        
+        if training==True:
+            #Get array with shape (x.shape[0]*x.shape[1]*x.shape[2], x.shape[3]) where the ith column corresponds to all
+            #elements in x[:,:,:,i], so all elements in the ith channel. The normalization is then done the same way as 
+            #for linear layers using this new array as input.
+            x_channels = x.copy().reshape(-1, x.shape[3])
+            mean = np.mean(x_channels, axis=0, keepdims=True)
+            variance = np.var(x_channels, axis=0, keepdims=True)
+            x_normalized = (x-mean)/np.sqrt(variance + self.epsilon)
+            out = self.gamma*x_normalized + self.beta
+                    
+            return out, x_normalized, mean, variance
+        
+        elif training==False:
+            x_normalized = (x-self.running_mean)/np.sqrt(self.running_variance + self.epsilon)
+            out = self.gamma*x_normalized + self.beta
+            
+            return out, ()
     
-    da = np.ones_like(a)
-    
-    d = BatchNorm(sample_dim=3)
-    ad, c = d.forward(a, training=True)
-    dad = d.backward(da, c, training=True)
+    def forward(self, prev_A, training=False):
+        '''
+        Forward step of a 2D Batch normalization layer in a Neural Network.
 
-# %%
+        Parameters
+        ----------
+        prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
+            Data before the 2D batch normalization layer is applied.
+        training : bool, optional
+            Whether the layer is currently in training or not. The default is False.
+
+        Returns
+        -------
+        curr_A : ndarray, shape: (number of samples, input height, input width, input channels)
+            Data after the Batch normalization Layer is applied.
+        cache : tuple
+            Cache containing information needed in the backwards propagation. Its contents are:
+                prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
+                    Input data.
+                x_normalized : ndarray, shape: (number of samples, input height, input width, input channels)
+                    Normalized input data, before gamma and beta are applied.
+                batch_mean : ndarray, shape: (1, input channels)
+                    Mean of the elements in each channel of prev_A.
+                batch_variance : ndarray, shape: (1, input channels)
+                    Variance of the elements in each channel of prev_A.
+                
+        '''
+        if training==True:
+            curr_A, x_normalized, batch_mean, batch_variance = self.value(prev_A, training=training)
+            self.running_mean = self.momentum*self.running_mean + (1-self.momentum)*batch_mean
+            self.running_variance = self.momentum*self.running_variance + (1-self.momentum)*batch_variance
+            cache = (prev_A, x_normalized, batch_mean, batch_variance)
+            
+        elif training==False:
+            curr_A = self.value(prev_A, training=training)
+            cache = (prev_A)
+        
+        return curr_A, cache
+    
+    def backward(self, dA, cache, training=False):
+        '''
+        Backward step of a Batch normalization Layer in a Neural Network.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: (number of samples, input height, input width, input channels)
+            Derivative of all Layers in the Neural Network starting after the current Layer.
+        cache : tuple
+            cache containing information from the forward propagation of the current dropout Layer. 
+            For its contens, refer to the return of self.forward.
+        training : bool, optional
+            Whether the Layer is currently in training or not. The default is False.
+
+        Returns
+        -------
+        prev_dA : ndarray, shape: (number of samples, input height, input width, input channels)
+            Derivative of all Layers in the Neural Network starting from the current Layer.
+        dgamma : ndarray, shape: (1, input channels)
+            Gradient of gamma.
+        dbeta : ndarray, shape: (1, input channels)
+            Gradient of beta.
+
+        '''
+        assert training, "Training should be True for backward propagation."
+        
+        prev_A, x_normalized, batch_mean, batch_variance = cache
+        
+        dA_channels = dA.copy().reshape(-1, dA.shape[3])
+        x_normalized_channels = x_normalized.copy().reshape(-1, x_normalized.shape[3])
+        
+        dgamma = np.sum(dA_channels*x_normalized_channels, axis=0, keepdims=True)
+        dbeta = np.sum(dA_channels, axis=0, keepdims=True)
+        
+        m = dA_channels.shape[0]
+        t = 1/np.sqrt(batch_variance + self.epsilon)
+        curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA_channels, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA_channels * (prev_A - batch_mean).reshape(-1, dA.shape[3]), axis=0))
+        
+        return curr_dA, dgamma, dbeta
+
 
 class Conv():
     def __init__(self, in_channels, out_channels, kernel_size, activation, stride=1, padding=0, flatten=False, bias=True):
