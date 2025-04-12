@@ -81,7 +81,7 @@ class Sequential():
             Result after the input is passed through all layers in the Sequential.
 
         '''
-        assert x_in.shape[1] == self.feature_num, "Number of features in the input does not match with the model."
+        #assert x_in.shape[1] == self.feature_num, "Number of features in the input does not match with the model."
         
         x_next = x_in
         
@@ -407,8 +407,8 @@ class NeuralNetwork():
             if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                 dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dw, curr_db]] + grads
-                self.dbl += [curr_db]
-                self.dwl += [curr_dw]
+                self.dbl += [np.copy(curr_db)]
+                self.dwl += [np.copy(curr_dw)]
                 
             elif curr_layer_type == "OrionML.Layer.Dropout":
                 dA = self.sequential[i].backward(curr_dA, curr_cache, training=True)
@@ -451,28 +451,14 @@ class NeuralNetwork():
             if layer.trainable:
                 curr_layer_type = layer.type()
                 if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
-                    arg = self.epoch<=10 and layer.dim2==10 and False
-                    num = 0
-                    pos = 436
-                    
-                    if False:
-                        print(np.argmax(grads[1][train_pos], axis=0))
-                    
-                    if arg:
-                        print(layer.w[pos][num])
-                        print(grads[1][train_pos][pos][num])
-                    
                     layer.w -= self.learning_rate * grads[1][train_pos]
                     layer.b -= self.learning_rate * grads[2][train_pos]
+                    
                     self.params[f"w layer {layer_pos}"] = layer.w
                     self.params[f"b layer {layer_pos}"] = layer.b
                     
-                    if arg:
-                        print(layer.w[pos][num])
-                        print()
-                    
-                    self.bl += [layer.b]
-                    self.wl += [layer.w]
+                    #self.bl += [np.copy(layer.b)]
+                    #self.wl += [np.copy(layer.w)]
                 
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
                     layer.gamma -= self.learning_rate * grads[1][train_pos]
@@ -512,8 +498,8 @@ class NeuralNetwork():
                     layer.w -= (self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
                     layer.b -= (self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
 
-                    self.bl += [layer.b]
-                    self.wl += [layer.w]
+                    #self.bl += [layer.b]
+                    #self.wl += [layer.w]
 
                     self.params[f"w layer {layer_pos}"] = layer.w
                     self.params[f"b layer {layer_pos}"] = layer.b
@@ -574,9 +560,7 @@ class NeuralNetwork():
             start_time = time()
             for curr_x, curr_y in zip(x_batches, y_batches):
                 A, caches = self.forward(curr_x)
-                
-                print(np.array_equal(x, curr_x))
-                                
+                                                
                 AL = self.loss_function.value(curr_y, A)
                 dAL = self.loss_function.derivative(curr_y, A)
                 
@@ -601,9 +585,10 @@ class NeuralNetwork():
                     acc_train = np.sum(same_arr_train)/len(y)
                     
                     print(f"Iteration {i+1:4}:")
-                    print(f"Validation: Loss {self.loss_function.value(validation[1], pred_val):8.4}, accuracy {100*acc_val:2.1f}%.")
-                    print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):8.4}, {AL:8.4}), accuracy {100*acc_train:2.1f}%.\n")
-                
+                    #print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):8.4}, {AL:8.4}), accuracy {100*acc_train:2.1f}%.\n")
+                    print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):5.4}), accuracy {100*acc_train:2.1f}%.")
+                    print(f"Validation: Loss {self.loss_function.value(validation[1], pred_val):8.4} ({self.loss_function.value(validation[1], self.sequential(validation[0])):5.4}), accuracy {100*acc_val:2.1f}%.\n")
+                    
                 else:
                     print(f"Iteration {i+1:4} training Loss: {AL:1.4}")
                         
@@ -642,9 +627,73 @@ if __name__ == "__main__":
 # %%
 
 if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Linear(784, 10, "softmax")])
+    
+    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-4, verbose=False)
+    
+    nn.fit(train_X, train_y, epochs=100, batch_size=1024, validation=[val_X, val_y])
+    
+    print(np.mean(nn.times), np.median(nn.times))
+        
+# %%
+
+if __name__ == "__main__":
     scaler = utils.StandardScaler()
     train_X = scaler.fit_transform(train_X)
     val_X = scaler.fit_transform(val_X)
+
+# %%
+
+if __name__ == "__main__":
+    train_X = train_X.reshape(train_X.shape[0], 28, 28, 1)
+    val_X = val_X.reshape(val_X.shape[0], 28, 28, 1)
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2, flatten=True), Layer.Linear(507, 10, "softmax")])
+    
+    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-3, verbose=True)
+    
+    nn.fit(train_X, train_y, epochs=3, batch_size=1024, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    epoch_conv = 15
+    epoch_lin = 10
+    
+    seq[0].w = nn.wl[2*(epoch_conv-1)]
+    seq[0].b = nn.bl[2*(epoch_conv-1)]
+    
+    seq[1].w = nn.wl[2*(epoch_lin-1)+1]
+    seq[1].b = nn.bl[2*(epoch_lin-1)+1]
+    
+# %%
+
+if __name__ == "__main__":
+    seq[0].w = nn.wl[-2]
+    seq[0].b = nn.bl[-2]
+    
+    seq[1].w = nn.wl[-1]
+    seq[1].b = nn.bl[-1]
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    pred_val = np.array([np.random.multinomial(1,val) for val in seq(val_X)])
+    same_arr_val = np.array([np.array_equal(val_y[i], pred_val[i]) for i in range(len(val_y))])
+    acc_val = np.sum(same_arr_val)/len(val_y)
+    
+    pred_train = np.array([np.random.multinomial(1,val) for val in seq(train_X)])
+    same_arr_train = np.array([np.array_equal(train_y[i], pred_train[i]) for i in range(len(train_y))])
+    acc_train = np.sum(same_arr_train)/len(train_y)
+        
+    print(f"Training:   Loss {Loss.mse().value(train_y, pred_train):8.4}, accuracy {100*acc_train:2.1f}%.")
+    print(f"Validation: Loss {Loss.mse().value(val_y, pred_val):8.4}, accuracy {100*acc_val:2.1f}%.\n")
         
 # %%
 

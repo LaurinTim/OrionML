@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import copy
+from time import time
 
 import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
@@ -42,7 +43,7 @@ class Linear():
         
         self.trainable = True
         self.dimension = np.array([dim1, dim2])
-        
+                
     def type(self):
         '''
 
@@ -224,7 +225,7 @@ class Linear():
             
         else:
             curr_dA = np.einsum('ijk,ik->ij', d_activation, dA, optimize="optimal")
-            
+                        
         #curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         #curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
         curr_dw = np.matmul(prev_A.T, curr_dA)
@@ -763,6 +764,12 @@ class Conv():
         self.w = np.zeros((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = np.zeros((1, self.out_channels))
         
+        self.t1 = 0
+        self.t2 = 0
+        self.t3 = 0
+        self.t4 = 0
+        self.t5 = 0
+                
     def type(self):
         '''
 
@@ -929,6 +936,8 @@ class Conv():
             Gradient of the weights.
 
         '''
+        st1 = time()
+        
         A, A_strided, A_convoluted = cache
         
         #If flatten is True, dA is of shape (number of samples, output height*output width*output channels), so dA needs to be reshaped to 
@@ -956,14 +965,45 @@ class Conv():
         strides = (batch_stride, 1*kern_h_stride, 1*kern_w_stride, kern_h_stride, kern_w_stride, channel_stride)
         
         dA_strided = np.lib.stride_tricks.as_strided(dA_padded, (dA.shape[0], A.shape[1], A.shape[2], self.w.shape[0], self.w.shape[1], dA.shape[3]), strides)
-        
+                
         db = np.array([np.sum(dA, axis=(0, 1, 2))])
         
-        #dw = np.einsum('bhwkli,bhwo->klio', A_strided, dA)
+        #dw = np.einsum('bhwkli,bhwo->klio', A_strided, dA, optimize="greedy")
+        st2 = time()
         dw = np.tensordot(A_strided, dA, axes=([0,1,2], [0,1,2]))
+        self.t2 += time()-st2
         
-        #curr_dA = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)))
-        curr_dA = np.tensordot(dA_strided, np.rot90(self.w, 2, axes=(0,1)), axes=([3,4,5], [0,1,3]))
+        #Try and use numba for dA_flat =  np.ascontiguousarray(dA_strided).reshape(N, -1)
+        #curr_dA = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)), optimize="greedy")
+        st3 = time()
+        curr_dA = np.tensordot(dA_strided, self.w, axes=([3,4,5], [0,1,3]))
+        
+        '''
+        w_flat = self.w.transpose(0, 1, 3, 2).reshape(-1, self.in_channels)
+        
+        N = dA_strided.shape[0] * dA_strided.shape[1] * dA_strided.shape[2]
+        
+        if self.t4==0 and False:
+            print(dA_strided.shape, np.size(dA_strided))
+                        
+        st4 = time()
+        dA_flat =  np.ascontiguousarray(dA_strided).reshape(N, -1)
+        self.t4 += time()-st4
+        
+        curr_dA = dA_flat.dot(w_flat).reshape(dA_strided.shape[0], dA_strided.shape[1], dA_strided.shape[2], -1)
+        '''
+                        
+        self.t3 += time()-st3
+        
+        
+        #b, h, w, k, l, i = A_strided.shape
+        #_, _, _, o = dA.shape
+        #N = b*h*w
+        #A_flat = A_strided.reshape(N, k*l*i)
+        #dA_flat = dA.reshape(N, o)
+        #dw = np.matmul(A_flat.T, dA_flat).reshape(k, l, i, o)
+        
+        self.t1 += time()-st1
         
         return curr_dA, dw, db
 
