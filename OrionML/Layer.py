@@ -223,7 +223,7 @@ class Linear():
             curr_dA = dA * d_activation
             
         else:
-            curr_dA = np.einsum('ijk,ik->ij', d_activation, dA)
+            curr_dA = np.einsum('ijk,ik->ij', d_activation, dA, optimize="optimal")
             
         #curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         #curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)

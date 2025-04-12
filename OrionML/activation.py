@@ -316,7 +316,7 @@ class softmax():
         '''
         sz = self.value(z)
         res = -sz.reshape(sz.shape[0],-1,1) * sz.reshape(sz.shape[0],1,sz.shape[1])
-        res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]))
+        res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]), optimize="optimal")
         return res
     
 # %%
