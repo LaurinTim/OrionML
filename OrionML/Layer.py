@@ -776,7 +776,7 @@ class Conv():
         self.activation_function = self.get_activation_function()
         
         self.trainable = True
-        self.dimensions = np.array([self.kernel_size, self.kernel_size, self.in_channels, self.out_channels])
+        self.dimension = np.array([self.kernel_size, self.kernel_size, self.in_channels, self.out_channels])
         
         self.w = np.ones((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = np.zeros((1, self.out_channels))
@@ -845,7 +845,7 @@ class Conv():
         
         return
         
-    def value(self, A):
+    def value(self, A, training=False):
         '''
         Pass an input to the convolutional Layer to get the output after the weights and bias  
         are applied.
