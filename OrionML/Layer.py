@@ -131,24 +131,6 @@ class Linear():
         '''
         z = np.matmul(x, self.w) + self.b
         out = self.activation_function.value(z)
-        if np.isnan(out).any():
-            print("\nERROR IN LAYER VALUE: NAN FOUND")
-            #print(out[:5])
-            print(np.isnan(self.activation_function.value(z[350:400])).any())
-            
-            print(self.activation_function.value(np.array([z[393]])))
-            print(z[393])
-
-            for i in range(50):
-                temp = self.activation_function.value(z[350+i:350+i+2])
-                if np.isnan(temp).any():
-                    print("-"*50)
-                    print(i+350)
-                    print()
-                    print(list(z[350+i:350+i+2]))
-                    print(np.max(z[350+i:350+i+2]))
-                    print(np.max(z[350+i:350+i+2], axis=1, keepdims=True))
-                    print("-"*50)
                     
         return out, z
     
@@ -980,10 +962,10 @@ class Conv():
         #dw = np.einsum('bhwkli,bhwo->klio', A_strided, dA)
         dw = np.tensordot(A_strided, dA, axes=([0,1,2], [0,1,2]))
         
-        #dx = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)))
+        #curr_dA = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)))
         curr_dA = np.tensordot(dA_strided, np.rot90(self.w, 2, axes=(0,1)), axes=([3,4,5], [0,1,3]))
         
-        return curr_dA, db, dw
+        return curr_dA, dw, db
 
 # %%
 
