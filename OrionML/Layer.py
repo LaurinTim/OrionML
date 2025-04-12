@@ -925,7 +925,7 @@ class Conv():
         
         return curr_A, cache
     
-    def backward(self, dA, cache):
+    def backward(self, dA, cache, training=False):
         '''
         Backward step for a convolutional Layer.
 
