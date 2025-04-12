@@ -548,6 +548,9 @@ class NeuralNetwork():
         self.bl = []
         self.wl = []
         
+        self.tfor = 0
+        self.tbak = 0
+        
         if batch_size==None:
             x_batches = [x]
             y_batches = [y]
@@ -559,12 +562,17 @@ class NeuralNetwork():
             self.epoch += 1
             start_time = time()
             for curr_x, curr_y in zip(x_batches, y_batches):
+                
+                stfor = time()
                 A, caches = self.forward(curr_x)
+                self.tfor += time()-stfor
                                                 
                 AL = self.loss_function.value(curr_y, A)
                 dAL = self.loss_function.derivative(curr_y, A)
                 
+                stbak = time()
                 grads = self.backward(dAL, caches)
+                self.tbak += time()-stbak
                 
                 self.update_parameters(grads)
                 
@@ -627,18 +635,6 @@ if __name__ == "__main__":
 # %%
 
 if __name__ == "__main__":
-    np.random.seed(0)
-    seq = Sequential([Layer.Linear(784, 10, "softmax")])
-    
-    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-4, verbose=False)
-    
-    nn.fit(train_X, train_y, epochs=100, batch_size=1024, validation=[val_X, val_y])
-    
-    print(np.mean(nn.times), np.median(nn.times))
-        
-# %%
-
-if __name__ == "__main__":
     scaler = utils.StandardScaler()
     train_X = scaler.fit_transform(train_X)
     val_X = scaler.fit_transform(val_X)
@@ -655,9 +651,11 @@ if __name__ == "__main__":
     np.random.seed(0)
     seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2, flatten=True), Layer.Linear(507, 10, "softmax")])
     
-    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-3, verbose=True)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-2, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=3, batch_size=1024, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=10, batch_size=1024, validation=[val_X, val_y])
+    
+    #print(np.mean(nn.times), np.median(nn.times))
     
 # %%
 
