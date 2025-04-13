@@ -2,6 +2,7 @@ import numpy as np
 import math
 import copy
 from time import time
+import numba as nb
 
 import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
@@ -714,6 +715,27 @@ class BatchNorm2D():
         curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA_channels, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA_channels * (prev_A - batch_mean).reshape(-1, dA.shape[3]), axis=0))
         
         return curr_dA, dgamma, dbeta
+    
+    
+@nb.njit
+def back_gradient(dA_strided, weights):
+    B, H, W, k, l, o = dA_strided.shape
+    
+    _, _, i, _ = weights.shape
+    
+    dA = np.zeros((B, H, W, i), dtype=dA_strided.dtype)
+    
+    for b in range(B):
+        for h in range(H):
+            for w in range(W):
+                for ki in range(k):
+                    for li in range(l):
+                        for oi in range(o):
+                            a_val = dA_strided[b, h, w, ki, li, oi]
+                            for ii in range(i):
+                                dA[b, h, w, ii] += a_val*weights[ki, li, ii, oi]
+        
+    return dA
 
 
 class Conv():
@@ -976,7 +998,9 @@ class Conv():
         #Try and use numba for dA_flat =  np.ascontiguousarray(dA_strided).reshape(N, -1)
         #curr_dA = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)), optimize="greedy")
         st3 = time()
-        curr_dA = np.tensordot(dA_strided, self.w, axes=([3,4,5], [0,1,3]))
+        #curr_dA = np.tensordot(dA_strided, self.w, axes=([3,4,5], [0,1,3]))
+        
+        curr_dA = back_gradient(dA_strided, self.w)
         
         '''
         w_flat = self.w.transpose(0, 1, 3, 2).reshape(-1, self.in_channels)

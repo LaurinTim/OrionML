@@ -185,11 +185,12 @@ def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None, vmax3=None):
     fig.colorbar(im2, cax=cax2)
     fig.tight_layout()
 
-def im2col_indices(x, field_height, field_width, stride=1):
+def im2col_indices(x_shape, field_height, field_width, stride=1, padding=0):
     # x: (N, C, H, W)
-    N, C, H, W = x.shape
-    out_height = (H - field_height) // stride + 1
-    out_width = (W - field_width) // stride + 1
+    #N, C, H, W = x_shape
+    N, H, W, C = x_shape
+    out_height = (H + 2*padding - field_height) // stride + 1
+    out_width = (W + 2*padding - field_width) // stride + 1
 
     i0 = np.repeat(np.arange(field_height), field_width)
     i0 = np.tile(i0, C)
@@ -199,53 +200,115 @@ def im2col_indices(x, field_height, field_width, stride=1):
     i = i0.reshape(-1, 1) + i1.reshape(1, -1)
     j = j0.reshape(-1, 1) + j1.reshape(1, -1)
     k = np.repeat(np.arange(C), field_height * field_width).reshape(-1, 1)
-
+    
+    #print(i)
+    
     return (k, i, j)
 
-def im2col(x, field_height, field_width, stride=1):
-    k, i, j = im2col_indices(x, field_height, field_width, stride)
-    cols = x[:, k, i, j]  # shape: (N, C * field_height * field_width, out_height*out_width)
-    cols = cols.transpose(1, 2, 0).reshape(field_height * field_width * x.shape[1], -1)
-    return cols
-    
-def col2im(cols, x_shape, field_height, field_width, stride=1):
-    N, C, H, W = x_shape
-    out_height = (H - field_height) // stride + 1
-    out_width = (W - field_width) // stride + 1
-    cols_reshaped = cols.reshape(C * field_height * field_width, out_height * out_width, N)
-    cols_reshaped = cols_reshaped.transpose(2, 0, 1)
-    x = np.zeros(x_shape)
-    k, i, j = im2col_indices(x, field_height, field_width, stride)
-    # Use np.add.at to accumulate the gradients for overlapping regions.
-    np.add.at(x, (slice(None), k, i, j), cols_reshaped)
-    return x
-    
-# %%
+def im2col(x, field_height, field_width, stride=1, padding=0):
+    '''
+    Convert images to column matrix.
 
+    Parameters
+    ----------
+    x : ndarray, shape: (N, H, W, C)
+        Input images. N is the number of images, H and W are the height and width of 
+        each image and C is the number of channels of each image.
+    field_height : int
+        Kernel height.
+    field_width : int
+        Kernel width.
+    stride : int, optional
+        Stride of the convolution. The default is 1.
+    padding : int, optional
+        Padding to be applied to the input. The default is 0.
+
+    Returns
+    -------
+    cols : ndarray, shape: (field_height * field_width * C, N * out_height * out_width)
+        Column matrix representation of the input data. out_height and out_width are:
+            out_height = (H + 2*padding - field_height)//stride + 1)
+            out_width = (W + 2*padding - field_width)//stride + 1
+        The first out_height * out_width columns correspond to the first image in the 
+        input data, and so on. The first field_height * field_width rows correspond to 
+        the first channel, and so on.
+
+    '''
+    k, i, j = im2col_indices(x.shape, field_height, field_width, stride, padding)
+    x_padded = np.pad(x, ((0,), (padding,), (padding,), (0,)), mode="constant")
+    cols = x_padded[:, i, j, k]  # shape: (N, C * field_height * field_width, out_height * out_width)
+    cols = np.concatenate(cols, axis=1) # shape: (field_height * field_width * C, N * out_height * out_width)
+    return cols
+
+def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0):
+    """
+    Reconstruct images from their column matrix representation.
+    
+    Parameters
+    ----------
+    cols : ndarray, shape: (field_height * field_width * C, N * out_height * out_width)
+        Column matrix of shape where N is the number of images and (out_height, out_width) are:
+          out_height = (height + 2*padding - field_height) // stride + 1
+          out_width  = (W + 2*padding - field_width)  // stride + 1
+        with the original input shape x_shape = (N, H, W, C).
+    x_shape : tuple
+        The shape of the input images: (N, H, W, C).
+    field_height : int
+        Height of each patch (typically the kernel height).
+    field_width : int
+        Width of each patch (typically the kernel width).
+    stride : int, optional
+        Stride used in the convolution. The default is 1.
+    padding : int, optional
+        Padding that was applied to the input images. The default is 0.
+        
+    Returns
+    -------
+    x : ndarray, shape: (N, H, W, C)
+        Reconstructed images.
+    """
+    N, H, W, C = x_shape
+    H_padded, W_padded = H + 2 * padding, W + 2 * padding
+    # Start with an array of zeros that will accumulate the results.
+    x_padded = np.zeros((N, H_padded, W_padded, C), dtype=cols.dtype)
+    
+    # Get the indices for the patches.
+    k, i, j = im2col_indices(x_shape, field_height, field_width, stride, padding)
+    # Compute the output spatial dimensions.
+    out_height = (H + 2 * padding - field_height) // stride + 1
+    out_width  = (W + 2 * padding - field_width) // stride + 1
+
+    # Reshape cols to have shape (N, C*field_height*field_width, out_height*out_width)
+    cols_reshaped = cols.reshape(C * field_height * field_width, N, out_height * out_width)
+    cols_reshaped = cols_reshaped.transpose(1, 0, 2)  # Now shape is (N, C*field_height*field_width, out_height*out_width)
+    
+    print(cols_reshaped)
+    
+    # Use np.add.at to scatter the values back into the padded image.
+    # Note: i, j, k all have shape (C * field_height * field_width, out_height*out_width)
+    np.add.at(x_padded, (slice(None), i, j, k), cols_reshaped)
+    
+    # Remove padding if needed.
+    if padding == 0:
+        return x_padded
+    return x_padded[:, padding:-padding, padding:-padding, :]
+
+# %%
+    
 if __name__ == "__main__":
-    a = np.array([[[[1, 1, 2, 4],
-                    [5, 6, 7, 8],
-                    [3, 2, 1, 0],
-                    [1, 2, 3, 4]], 
+    a = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
                   
-                   [[3, 2, 7, 4],
-                    [8, 1, 4, 2],
-                    [3, 1, 1, 2],
-                    [5, 6, 2, 3]]],
-                  
-                  [[[1, 1, 2, 4],
-                    [5, 2, 7, 1],
-                    [3, 2, 1, 0],
-                    [1, 2, 5, 4]], 
-                 
-                   [[3, 2, 1, 4],
-                    [1, 1, 4, 2],
-                    [4, 1, 1, 2],
-                    [5, 3, 2, 3]]]])
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
     
-    al = im2col(a, 2, 2, 1)
+    al = im2col(a, 2, 2, 1, 0)
     
-    am = col2im(al, a.shape, 2, 2, 1)
+    am = col2im(al, a.shape, 2, 2, 1, 0)
+    
+    
         
     
     
