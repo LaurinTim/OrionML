@@ -561,8 +561,8 @@ class NeuralNetwork():
         for i in range(epochs):
             self.epoch += 1
             start_time = time()
+            
             for curr_x, curr_y in zip(x_batches, y_batches):
-                
                 stfor = time()
                 A, caches = self.forward(curr_x)
                 self.tfor += time()-stfor
@@ -651,11 +651,15 @@ if __name__ == "__main__":
     np.random.seed(0)
     seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2, flatten=True), Layer.Linear(507, 10, "softmax")])
     
-    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-2, verbose=True)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-1, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=1024, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=100, batch_size=1024, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
+    
+# %%
+
+nn.fit(train_X, train_y, epochs=100, batch_size=1024, validation=[val_X, val_y])
     
 # %%
 
