@@ -281,9 +281,7 @@ def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0):
     # Reshape cols to have shape (N, C*field_height*field_width, out_height*out_width)
     cols_reshaped = cols.reshape(C * field_height * field_width, N, out_height * out_width)
     cols_reshaped = cols_reshaped.transpose(1, 0, 2)  # Now shape is (N, C*field_height*field_width, out_height*out_width)
-    
-    print(cols_reshaped)
-    
+        
     # Use np.add.at to scatter the values back into the padded image.
     # Note: i, j, k all have shape (C * field_height * field_width, out_height*out_width)
     np.add.at(x_padded, (slice(None), i, j, k), cols_reshaped)
@@ -304,9 +302,9 @@ if __name__ == "__main__":
                    [[0,3],[0,5],[2,0]],
                    [[4,0],[5,2],[2,1]]]])
     
-    al = im2col(a, 2, 2, 1, 0)
+    al = im2col(a, 3, 3, 1, 0)
     
-    am = col2im(al, a.shape, 2, 2, 1, 0)
+    am = col2im(al, a.shape, 3, 3, 1, 0)
     
     
         
