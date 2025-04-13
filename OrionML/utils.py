@@ -3,6 +3,7 @@ import math
 import copy
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numba as nb
 
 
 def train_test_split(arr, train=1, shuffle=True):
@@ -185,6 +186,7 @@ def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None, vmax3=None):
     fig.colorbar(im2, cax=cax2)
     fig.tight_layout()
 
+
 def im2col_indices(x_shape, field_height, field_width, stride=1, padding=0):
     # x: (N, C, H, W)
     #N, C, H, W = x_shape
@@ -204,6 +206,7 @@ def im2col_indices(x_shape, field_height, field_width, stride=1, padding=0):
     #print(i)
     
     return (k, i, j)
+
 
 def im2col(x, field_height, field_width, stride=1, padding=0):
     '''
@@ -239,6 +242,7 @@ def im2col(x, field_height, field_width, stride=1, padding=0):
     cols = x_padded[:, i, j, k]  # shape: (N, C * field_height * field_width, out_height * out_width)
     cols = np.concatenate(cols, axis=1) # shape: (field_height * field_width * C, N * out_height * out_width)
     return cols
+
 
 def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0):
     """

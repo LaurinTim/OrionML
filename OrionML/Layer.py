@@ -715,27 +715,6 @@ class BatchNorm2D():
         curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA_channels, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA_channels * (prev_A - batch_mean).reshape(-1, dA.shape[3]), axis=0))
         
         return curr_dA, dgamma, dbeta
-    
-    
-@nb.njit
-def back_gradient(dA_strided, weights):
-    B, H, W, k, l, o = dA_strided.shape
-    
-    _, _, i, _ = weights.shape
-    
-    dA = np.zeros((B, H, W, i), dtype=dA_strided.dtype)
-    
-    for b in range(B):
-        for h in range(H):
-            for w in range(W):
-                for ki in range(k):
-                    for li in range(l):
-                        for oi in range(o):
-                            a_val = dA_strided[b, h, w, ki, li, oi]
-                            for ii in range(i):
-                                dA[b, h, w, ii] += a_val*weights[ki, li, ii, oi]
-        
-    return dA
 
 
 class Conv():
@@ -855,56 +834,57 @@ class Conv():
         if self.bias==True: self.b = b_new
         
         return
-        
+    
     def value(self, A, training=False):
-        '''
-        Pass an input to the convolutional Layer to get the output after the weights and bias  
-        are applied.
-
+        """
+        Convolution of layer using im2col.
+    
         Parameters
         ----------
-        A : ndarray, shape: (number of samples, input height, input width, input channels)
-            Input data.
-
+        x : ndarray
+            Input data of shape (N, H, W, C).
+        w : ndarray
+            Filter weights of shape (FH, FW, C, out_channels).
+        b : ndarray
+            Biases of shape (1, out_channels).
+        stride : int, optional
+            Stride for the convolution.
+        padding : int, optional
+            Number of pixels to pad around the input height and width.
+        activation : function or None, optional
+            Activation function to apply elementwise. If None, no nonlinearity is applied.
+    
         Returns
         -------
-        prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
-            Input data.
-        prev_A_strided : ndarray, shape: (number of samples, output height, output width, kernel size, kernel size, input channels)
-            Array containing the sliding windows of prev_A used for the convolution.
+        out : ndarray
+            Output data of shape (N, H_out, W_out, out_channels) where
+            H_out = (H + 2*padding - FH)//stride + 1 and 
+            W_out = (W + 2*padding - FW)//stride + 1.
+        
+        """
+        st1 = time()
+        
+        N, H_prev, W_prev, C_prev = A.shape
 
-        '''
-        # =============================================================================
-        #  As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
-        #  Dimension of A.strides will be 64/8=4. 
-        #  For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
-        #  The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
-        #  For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
-        #  The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
-        # =============================================================================
-            
-        h_out = (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1
-        w_out = (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1
+        H_out = (H_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
+        W_out = (W_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
         
-        A_padded = np.copy(A)
+        A_col = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride, self.padding)
         
-        if self.padding > 0:
-            A_padded = np.pad(A_padded, pad_width=((0,), (self.padding,), (self.padding,), (0,)), mode="constant", constant_values=(0.,))
+        w_col = self.w.reshape(-1, self.out_channels)
+        # Perform matrix multiplication.
+        out_col = np.matmul(w_col.T, A_col) + self.b.T
+        # Reshape back matrix to image.
+        out_convoluted = out_col.T.reshape(N, H_out, W_out, self.out_channels)
         
-        batch_stride, kern_h_stride, kern_w_stride, channel_stride = A_padded.strides
-        strides = (batch_stride, self.stride*kern_h_stride, self.stride*kern_w_stride, kern_h_stride, kern_w_stride, channel_stride)
-        
-        A_strided = np.lib.stride_tricks.as_strided(A_padded, (A.shape[0], h_out, w_out, self.w.shape[0], self.w.shape[1], A.shape[3]), strides)
-        
-        #A_convoluted = np.einsum('abcijk,ijkd', A_strided, self.w) + self.b
-        A_convoluted = np.tensordot(A_strided, self.w, axes=3) + self.b
-        
-        output = self.activation_function.value(A_convoluted)
+        output = self.activation_function.value(out_convoluted)
         
         if self.flatten:
             output = output.reshape(output.shape[0], -1)
+                        
+        if training == True: self.t1 += time()-st1
         
-        return output, (A_strided, A_convoluted)
+        return output, (A_col, out_convoluted)
     
     def forward(self, prev_A, training=None):
         '''
@@ -931,105 +911,85 @@ class Conv():
                     Array containing the sliding windows of prev_A used for the convolution.
 
         '''
-        curr_A, (prev_A_strided, A_convoluted) = self.value(prev_A)
-        cache = (prev_A, prev_A_strided, A_convoluted)
+        curr_A, (A_col, A_convoluted) = self.value(prev_A, training=training)
+        cache = (prev_A, A_col, A_convoluted)
         
         return curr_A, cache
     
     def backward(self, dA, cache, training=False):
-        '''
-        Backward step for a convolutional Layer.
-
+        """
+        Backward pass for a convolutional layer using im2col and col2im.
+    
         Parameters
         ----------
-        dA : ndarray, shape: (number of samples, output height, output width, output channels) if not flatten, 
-                            else (number of samples, output height*output width*output channels)
-            Upstream gradient.
+        dout : ndarray
+            Upstream gradients of shape (N, H_out, W_out, out_channels).
         cache : tuple
-            Cache containing information from the forwards propagation used in the backwards propagation.
-
+            Values from the forward pass (x, w, b, stride, padding, X_col).
+    
         Returns
         -------
-        curr_dA : ndarray, shape: (number of samples, input height, input width, input channels)
-            Gradient to be passed as upstream gradient to the next layer in backwards propagation.
-        db : ndarray, shape: (1, input channels)
-            Gradient of the bias.
-        dw : ndarray, shape: (kernel size, kernel size, input channels, output channels)
-            Gradient of the weights.
-
-        '''
-        st1 = time()
+        dx : ndarray
+            Gradient with respect to the input, of shape (N, H, W, C).
+        dw : ndarray
+            Gradient with respect to the weights, of shape (FH, FW, C, out_channels).
+        db : ndarray
+            Gradient with respect to the biases, of shape (1, out_channels).
+        """
+        A_prev, A_col, A_convoluted = cache
+        N, H, W, C = A_prev.shape
         
-        A, A_strided, A_convoluted = cache
-        
-        #If flatten is True, dA is of shape (number of samples, output height*output width*output channels), so dA needs to be reshaped to 
-        #(number of samples, output height, output width, output channels). The height and width of the output can be calculated with:
-        #output height = (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1
-        #output width = (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1
-        #where A is the input for the forward function in this layer called previously, saved as cache[0].
         if self.flatten:
-            dA = dA.reshape(dA.shape[0], (A.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1, (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
+            dA = dA.reshape(dA.shape[0], (A_prev.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1, (A_prev.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
         
         d_activ = self.activation_function.derivative(A_convoluted)
         dA = d_activ * dA
-        
-        dA_padded = np.copy(dA)
-        back_padding = self.kernel_size - 1 if self.padding==0 else self.padding
-                
-        if self.stride > 1:
-            dA_padded = np.insert(dA, range(1, dA.shape[1]), 0, axis=1)
-            dA_padded = np.insert(dA_padded, range(1, dA.shape[2]), 0, axis=2)
-                
-        if back_padding > 0:
-            dA_padded = np.pad(dA_padded, pad_width=((0,), (back_padding,), (back_padding,), (0,)), mode="constant", constant_values=(0.,))
-        
-        batch_stride, kern_h_stride, kern_w_stride, channel_stride = dA_padded.strides
-        strides = (batch_stride, 1*kern_h_stride, 1*kern_w_stride, kern_h_stride, kern_w_stride, channel_stride)
-        
-        dA_strided = np.lib.stride_tricks.as_strided(dA_padded, (dA.shape[0], A.shape[1], A.shape[2], self.w.shape[0], self.w.shape[1], dA.shape[3]), strides)
-                
-        db = np.array([np.sum(dA, axis=(0, 1, 2))])
-        
-        #dw = np.einsum('bhwkli,bhwo->klio', A_strided, dA, optimize="greedy")
-        st2 = time()
-        dw = np.tensordot(A_strided, dA, axes=([0,1,2], [0,1,2]))
-        self.t2 += time()-st2
-        
-        #Try and use numba for dA_flat =  np.ascontiguousarray(dA_strided).reshape(N, -1)
-        #curr_dA = np.einsum('bhwklo,klio->bhwi', dA_strided, np.rot90(self.w, 2, axes=(0,1)), optimize="greedy")
-        st3 = time()
-        #curr_dA = np.tensordot(dA_strided, self.w, axes=([3,4,5], [0,1,3]))
-        
-        curr_dA = back_gradient(dA_strided, self.w)
-        
-        '''
-        w_flat = self.w.transpose(0, 1, 3, 2).reshape(-1, self.in_channels)
-        
-        N = dA_strided.shape[0] * dA_strided.shape[1] * dA_strided.shape[2]
-        
-        if self.t4==0 and False:
-            print(dA_strided.shape, np.size(dA_strided))
-                        
-        st4 = time()
-        dA_flat =  np.ascontiguousarray(dA_strided).reshape(N, -1)
-        self.t4 += time()-st4
-        
-        curr_dA = dA_flat.dot(w_flat).reshape(dA_strided.shape[0], dA_strided.shape[1], dA_strided.shape[2], -1)
-        '''
-                        
-        self.t3 += time()-st3
-        
-        
-        #b, h, w, k, l, i = A_strided.shape
-        #_, _, _, o = dA.shape
-        #N = b*h*w
-        #A_flat = A_strided.reshape(N, k*l*i)
-        #dA_flat = dA.reshape(N, o)
-        #dw = np.matmul(A_flat.T, dA_flat).reshape(k, l, i, o)
-        
-        self.t1 += time()-st1
-        
+    
+        # Reshape upstream gradients:
+        # dout is of shape (N, H_out, W_out, out_channels); convert it into 
+        # shape (out_channels, N*H_out*W_out) for easier matrix multiplication.
+        dA_reshaped = dA.transpose(0, 3, 1, 2).reshape(self.out_channels, -1)
+    
+        # Gradient with respect to bias: sum over all spatial locations and examples.
+        db = np.sum(dA, axis=(0, 1, 2)).reshape(1, -1)
+    
+        # Gradient with respect to weights.
+        # Compute dW_col = X_col dot (dout reshaped transposed), then reshape.
+        dw_col = A_col.dot(dA_reshaped.T)  # shape: (FH*FW*C, out_channels)
+        dw = dw_col.reshape(self.w.shape)
+    
+        # Gradient with respect to the input:
+        # Compute dX_col = weights (reshaped) dot dout_reshaped.
+        w_col = self.w.reshape(-1, self.out_channels)  # shape: (FH*FW*C, out_channels)
+        dA_col = np.matmul(w_col, dA_reshaped) #w_col.dot(dA_reshaped)      # shape: (FH*FW*C, N*H_out*W_out)
+    
+        # Use col2im to reshape dX_col back to input shape.
+        curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding)
+    
         return curr_dA, dw, db
+    
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    c = Conv(in_channels=2, out_channels=3, kernel_size=2, activation="linear")
+    
+    ac, ca = c.forward(a)
+    ac1, ca1 = c.forward1(a)
+    
+    dac, dw, db = c.backward(np.ones_like(ac), ca)
+    dac1, dw1, db1 = c.backward1(np.ones_like(ac1), ca1)
+    
+    #d = Dropout(dropout_probability=0.5)
+    
+    #ad = d.value(a, training=True)
 
 # %%
 
@@ -1056,25 +1016,6 @@ if __name__ == "__main__":
     conv = Conv(in_channels, out_channels, kernel_size, stride, padding)
     
     conv_outl, c = conv.forward(xl)
-    
-# %%
-
-if __name__ == "__main__":
-    a = np.array([[[[2,5],[0,2],[2,0]],
-                   [[3,0],[3,1],[1,4]],
-                   [[4,4],[1,0],[3,4]]],
-                  
-                  [[[5,1],[2,4],[3,4]],
-                   [[0,3],[0,5],[2,0]],
-                   [[4,0],[5,2],[2,1]]]])
-    
-    c = Conv(in_channels=2, out_channels=3, kernel_size=2, activation="linear")
-    
-    ac = c.value(a)
-    
-    d = Dropout(dropout_probability=0.5)
-    
-    ad = d.value(a, training=True)
     
 # %%
 
