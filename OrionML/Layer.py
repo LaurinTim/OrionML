@@ -195,10 +195,9 @@ class Linear():
             Derivative of the bias of the current Layer given dA and the values in the cache.
 
         '''
-        prev_A, curr_w, curr_b, curr_Z = cache
+        prev_A, curr_w, curr_b, curr_z = cache
         
-        z = np.matmul(x, self.w) + self.b
-        d_activation = self.activation_function.derivative(z)
+        d_activation = self.activation_function.derivative(curr_z)
         
         if self.activation != "softmax":
             curr_dA = dA * d_activation
@@ -724,12 +723,6 @@ class Conv():
         
         self.w = np.zeros((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = np.zeros((1, self.out_channels))
-        
-        self.t1 = 0
-        self.t2 = 0
-        self.t3 = 0
-        self.t4 = 0
-        self.t5 = 0
                 
     def type(self):
         '''
@@ -821,9 +814,7 @@ class Conv():
             H_out = (H + 2*padding - FH)//stride + 1 and 
             W_out = (W + 2*padding - FW)//stride + 1.
         
-        """
-        st1 = time()
-        
+        """        
         N, H_prev, W_prev, C_prev = A.shape
 
         H_out = (H_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
@@ -841,9 +832,7 @@ class Conv():
         
         if self.flatten:
             output = output.reshape(output.shape[0], -1)
-                        
-        if training == True: self.t1 += time()-st1
-        
+                                
         return output, (A_col, out_convoluted)
     
     def forward(self, prev_A, training=None):
