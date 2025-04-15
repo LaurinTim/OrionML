@@ -109,7 +109,7 @@ class Linear():
         
         return
         
-    def value(self, x, training=None):
+    def value(self, x, training=False):
         '''
         Pass an input to the linear Layer to get the output after the weights, bias and 
         activation function is applied.
@@ -120,7 +120,7 @@ class Linear():
             Input data.
         training : bool/None, optional
             Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
+            Layers. The default is False.
 
         Returns
         -------
@@ -136,31 +136,7 @@ class Linear():
                     
         return out, z
     
-    def derivative(self, x, training=None):
-        '''
-        Get the derivative of the activation function for the values after applying the 
-        weights and bias of the linear Layer to the input data.
-
-        Parameters
-        ----------
-        x : ndarray, shape: (number of samples, self.dim1)
-            Input data.
-        training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
-
-        Returns
-        -------
-        d_activ : ndarray, shape: (input size, output size, output size)
-            Derivative of the activation function for the values after applying the 
-            weights and bias of the linear Layer to the input data.
-
-        '''
-        z = np.matmul(x, self.w) + self.b
-        d_activ = self.activation_function.derivative(z)
-        return d_activ
-    
-    def forward(self, prev_A, training=None):
+    def forward(self, prev_A, training=False):
         '''
         Forward step of a linear Layer in a Neural Network.
 
@@ -170,7 +146,7 @@ class Linear():
             Data before the current linear Layer is applied.
         training : bool/None, optional
             Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
+            Layers. The default is False.
 
         Returns
         -------
@@ -194,7 +170,7 @@ class Linear():
         
         return curr_A, cache
     
-    def backward(self, dA, cache, training=None):
+    def backward(self, dA, cache, training=False):
         '''
         Backward step of a linear Layer in a Neural Network.
 
@@ -207,7 +183,7 @@ class Linear():
             For its contens, refer to the return of self.forward.
         training : bool/None, optional
             Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
+            Layers. The default is False.
 
         Returns
         -------
@@ -220,7 +196,10 @@ class Linear():
 
         '''
         prev_A, curr_w, curr_b, curr_Z = cache
-        d_activation = self.derivative(prev_A)
+        
+        z = np.matmul(x, self.w) + self.b
+        d_activation = self.activation_function.derivative(z)
+        
         if self.activation != "softmax":
             curr_dA = dA * d_activation
             
@@ -308,27 +287,6 @@ class Dropout():
             
         return res, mask
     
-    def derivative(self, mask, training=False):
-        '''
-        Get the derivative of the dropout Layer.
-
-        Parameters
-        ----------
-        mask : ndarray, shape: (input size, output size)
-            Mask from the dropout Layer when it was applied
-        training : bool, optional
-            Whether the Layer is currently in training or not. If training is False, no dropout 
-            is applied and the derivative is the same as for linear activation. The default is False.
-
-        Returns
-        -------
-        ndarray, shape: (input size, output size)
-            If training is False, return an array filled with ones. Otherwise return mask.
-
-        '''
-        if training==False: return np.ones(mask.shape)
-        return mask
-    
     def forward(self, prev_A, training=False):
         '''
         Forward step of a dropout Layer in a Neural Network.
@@ -376,10 +334,12 @@ class Dropout():
         prev_dA : ndarray, shape: (input size, output size)
             Derivative of all Layers in the Neural Network starting from the current Layer.
 
-        '''        
+        '''
+        assert training, "Training set to False in the backward pass of a Dropout layer."
+        
         prev_A, curr_mask = cache
-        d_Layer = self.derivative(curr_mask, training=training)
-        prev_dA = d_Layer * dA
+        prev_dA = curr_mask * dA
+        
         return prev_dA
 
     
@@ -1110,53 +1070,6 @@ if __name__ == "__main__":
     l.w = w
     rl, c = l.value(a)
     drl = l.derivative(dal, c)
-    
-# %%
-
-def value1(self, A, training=False):
-         '''
-         Apply pooling of type self.pool_mode to the input.
-         
-         Parameters
-         ----------
-         A : ndarray, shape: (input size, number of filters, dim1, dim2)
-             array to apply the pooling to the second dimension
-         training : bool/None, optional
-             Whether the Layer is currently in training or not. This has no effect for linear 
-             Layers. The default is None.
- 
-         Returns
-         -------
-         res : ndarray, shape: (input size, output size)
-             Copy of activation_output but each element set to 0 with probability dropout_probability.
- 
-         '''
- # =============================================================================
- #       As a reminder: ndarray.strides gives the number of bytes to step until the next element is reached in each dimension. Each number in the arrays is of type np.float64, the last 
- #       Dimension of A.strides will be 64/8=4. 
- #       For the array np.array([[0,1,2],[3,4,5]]) b.strides is (12, 4) since each number is a 32 bit integer and thus there are 4 bytes for each number.
- #       The first dimension is filled with three 32 bit integers and thus the stride for the first dimension is 3*4=12.
- #       For the array np.array([[0,1,2],[3,4,5]], dtype=float) b.strides is (24, 8) since each number is a 64 bit float and thus there are 8 bytes for each number.
- #       The first dimension is filled with three 64 bit floats and thus the stride for the first dimension is 3*8=24. 
- # =============================================================================
-         A_num_dims = A.ndim
-         
-         assert A_num_dims == 4, "Input to pooling layer has wrong number of dimensions. A needs 4 dimensions."
-         
-         A = np.pad(A, self.padding, mode="constant")
-         
-         output_shape = (A.shape[0], A.shape[1], (A.shape[2] + 2*self.padding - self.kernel_size) // self.stride + 1, (A.shape[3] + 2*self.padding - self.kernel_size) // self.stride + 1)
-         w_shape = (output_shape[0], output_shape[1], output_shape[2], output_shape[3], self.kernel_size, self.kernel_size)
-         w_strides = (A.strides[0], A.strides[1], self.stride*A.strides[2], self.stride*A.strides[3], A.strides[2], A.strides[3])
-         
-         A_w = np.lib.stride_tricks.as_strided(A, w_shape, w_strides)
- 
-         if self.pool_mode=="max":
-             A_w = A_w.max(axis=(4, 5))
-         elif self.pool_mode=="avg":
-             A_w = A_w.mean(axis=(4, 5))
-         
-         return A_w
 
 # %%
 
