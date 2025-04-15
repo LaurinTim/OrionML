@@ -1207,93 +1207,171 @@ class Pool():
         '''
         return f"OrionML.Layer.Pool (kernel size: {self.kernel_size}, stride: {self.stride}, padding: {self.padding}, pooling mode: {self.pool_mode})"
     
-    
     def value(self, A, training=False):
         '''
         Apply pooling of type self.pool_mode to the input.
         
         Parameters
         ----------
-        A : ndarray, shape: (input size, number of filters, dim1, dim2)
-            array to apply the pooling to the second dimension
+        A : ndarray, shape: (N, H, W, C)
+            Input images. N is the number of images, H and W are the height and width of 
+            each image and C is the number of channels of each image.
         training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for linear 
-            Layers. The default is None.
+            Whether the Layer is currently in training or not. This has no effect for pooling 
+            Layers. The default is False.
 
         Returns
         -------
-        res : ndarray, shape: (input size, output size)
-            Copy of activation_output but each element set to 0 with probability dropout_probability.
+        A_curr : ndarray, shape: (N, H, W, C)
+            Input images with the pooling applied.
+        cache : tuple
+            Cache containing information required in backward step. The cache contains:
+                A : ndarray, shape: (N, H, W, C)
+                    Input images.
+                A_cols : ndarray, shape: (C * field_height * field_width, N * H_out * W_out)
+                    Column representation of each window in A. The field_height and field_width are the kernel 
+                    dimensions and  out_height and out_width the dimensions of each image in the output given by:
+                        out_height = (H + 2*padding - field_height)//stride + 1)
+                        out_width = (W + 2*padding - field_width)//stride + 1
+                max_idx : ndarray/None, shape: (C, N * out_height * out_width)
+                    Position of the maximum value in each column at dimension 1 of A_cols_reshaped.
 
         '''
-        A_w_cols = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride)
-        max_idx = np.argmax(A_w_cols.reshape(A.shape[1], self.kernel_size**2, -1), axis=1)
-        
-        #A_w = np.reshape(np.array([A_w_cols[:, 0::2], A_w_cols[:, 1::2]]), (A.shape[0], A.shape[1], self.kernel_size**2, ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1) * ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1)))
-        A_w = np.reshape(np.array([A_w_cols[:, val::A.shape[0]] for val in range(A.shape[0])]), (A.shape[0], A.shape[1], self.kernel_size**2, ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1) * ((A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1)))
-        
-        if self.pool_mode=="max":
-            A_w = np.max(A_w, axis=2)
-            
-        if self.pool_mode=="avg":
-            A_w = np.mean(A_w, axis=2)
-            
-        cache = (A, A_w_cols.reshape(A.shape[1], self.kernel_size**2, -1), max_idx)
-        
-        return A_w.reshape(A.shape[0], A.shape[1], (A.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, (A.shape[3] + 2*self.padding - self.kernel_size)//self.stride + 1), cache
+        N, H, W, C = A.shape
+        H_out = (H + 2 * self.padding - self.kernel_size) // self.stride + 1
+        W_out = (W + 2 * self.padding - self.kernel_size) // self.stride + 1
     
-    def derivative(self, A_prev, dA, x_cols, max_idx, training=False):
+        # Use im2col to extract all patches.
+        # im2col should return an array of shape:
+        #     (C * kernel_size * kernel_size, N * H_out * W_out)
+        A_cols = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride, self.padding)
+        
+        # Reshape so that we group elements for each channel separately.
+        # New shape: (C, kernel_size*kernel_size, N * H_out * W_out)
+        A_cols_reshaped = A_cols.reshape(C, self.kernel_size * self.kernel_size, -1)
+                
+        if self.pool_mode == "max":
+            # For each channel and each patch, take the maximum.
+            out_cols = np.max(A_cols_reshaped, axis=1)  # shape: (C, N * H_out * W_out)
+            # Record which index within each patch was maximal (for backprop).
+            max_idx = np.argmax(A_cols_reshaped, axis=1)  # shape: (C, N * H_out * W_out)
+        elif self.pool_mode == "avg":
+            out_cols = np.mean(A_cols_reshaped, axis=1)   # shape: (C, N * H_out * W_out)
+            max_idx = None
+        else:
+            raise ValueError("pool_mode must be either 'max' or 'avg'")
+        
+        # Reshape out_cols to (C, N, H_out, W_out) and then transpose to (N, H_out, W_out, C)
+        A_curr = out_cols.reshape(C, N, H_out, W_out).transpose(1, 2, 3, 0)
+        
+        cache = (A, A_cols, max_idx)
+        
+        return A_curr, cache
+    
+    def forward(self, prev_A, training=False):
         '''
-        Get the derivative of the pooling Layer.
+        Forward pass for a pooling Layer. This is evaluated using im2col and col2im algorithms 
+        from OrionML.utils.
 
         Parameters
         ----------
-        mask : ndarray, shape: (input size, output size)
-            Mask from the dropout Layer when it was applied
-        training : bool, optional
-            Whether the Layer is currently in training or not. If training is False, no dropout 
-            is applied and the derivative is the same as for linear activation. The default is False.
+        prev_A : ndarray, shape: (N, H, W, C)
+            Input images. N is the number of images, H and W are the height and width of 
+            each image and C is the number of channels of each image.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for pooling 
+            Layers. The default is False.
 
         Returns
         -------
-        ndarray, shape: (input size, output size)
-            If training is False, return an array filled with ones. Otherwise return mask.
+        A_curr : ndarray, shape: (N, H, W, C)
+            Input images with the pooling applied.
+        cache : tuple
+            Cache containing information required in backward step. The cache contains:
+                A : ndarray, shape: (N, H, W, C)
+                    Input images.
+                A_cols : ndarray, shape: (C * field_height * field_width, N * H_out * W_out)
+                    Column representation of each window in A. The field_height and field_width are the kernel 
+                    dimensions and  out_height and out_width the dimensions of each image in the output given by:
+                        out_height = (H + 2*padding - field_height)//stride + 1)
+                        out_width = (W + 2*padding - field_width)//stride + 1
+                max_idx : ndarray/None, shape: (C, N * out_height * out_width)
+                    Position of the maximum value in each column at dimension 1 of A_cols_reshaped.
 
-        '''        
-        N, C, H, W = A_prev.shape
-
-        # Reshape dout to match the dimensions of x_cols:
-        # dout: (N, C, out_height, out_width) -> (C, 1, N*out_height*out_width)
-        dA_reshaped = dA.transpose(1, 2, 3, 0).reshape(C, -1)
-        
-        if self.pool_mode=="max":
-            # Initialize gradient for x_cols as zeros.
-            dmax = np.zeros_like(x_cols)
-            
-            # Scatter the upstream gradients to the positions of the max indices.
-            # For each channel and each pooling window, place the corresponding gradient at the max index.
-            dmax[np.arange(C)[:, None], max_idx, np.arange(x_cols.shape[2])] = dA_reshaped
-            
-            # Reshape dmax back to the 2D column shape expected by col2im.
-            dmax = dmax.reshape(C * self.kernel_size**2, -1)
-            
-            # Convert the columns back to the original image shape.
-            dx = utils.col2im(dmax, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
-            
-        if self.pool_mode=="avg":
-            dcols = np.repeat(dA_reshaped, self.kernel_size**2, axis=0) / (self.kernel_size**2)
-            dx = utils.col2im(dcols, A_prev.shape, self.kernel_size, self.kernel_size, self.stride)
-
-        return dx
-    
-    def forward(self, prev_A, training=False):
-        curr_A, cache = self.value(prev_A, training=training)
-        return curr_A, cache
+        '''
+        A_curr, cache = self.value(prev_A, training=training)
+        return A_curr, cache
     
     def backward(self, dA, cache, training=False):
-        A_prev, A_w_cols, max_idx = cache
-        dx = self.derivative(A_prev, dA, A_w_cols, max_idx, training=training)
-        return dx
+        '''
+        Backward pass for a pooling Layer. This is evaluated using im2col and col2im algorithms 
+        from OrionML.utils.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: (N, H_out, W_out, C)
+            Upstream gradient.
+        training : bool, optional
+            Whether the Layer is currently in training or not. This has no effect for pooling 
+            Layers. The default is False.
+
+        Returns
+        -------
+        dA_curr : ndarray, shape: (input size, output size)
+            Gradient with respect to the input A.
+
+        '''        
+        A, A_cols, max_idx = cache
+        N, H, W, C = A.shape
+        
+        # Initialize gradient in column shape: same shape as A_cols.
+        dA_curr_cols = np.zeros_like(A_cols)  # shape: (C * kernel_size * kernel_size, N * H_out * W_out)
+        
+        # For backpropagation, we reshape A_cols so that pooling regions (patches) are grouped per channel.
+        dA_curr_cols_reshaped = dA_curr_cols.reshape(C, self.kernel_size * self.kernel_size, -1)  # shape: (C, kernel_size*kernel_size, N*H_out*W_out)
+        
+        # Reshape upstream gradient: (N, H_out, W_out, C) --> (C, N*H_out*W_out)
+        dA_reshaped = dA.transpose(3, 0, 1, 2).reshape(C, -1)
+        
+        if self.pool_mode == "max":
+            # For max pooling, distribute upstream gradient only to the positions that had the maximum.
+            # For each channel c and each patch (column), set the gradient at the max index.
+            for c in range(C):
+                # Here, max_idx[c] is a 1D array of length (N * H_out * W_out)
+                # Use np.arange to index the patch dimension.
+                dA_curr_cols_reshaped[c, max_idx[c], np.arange(dA_reshaped.shape[1])] = dA_reshaped[c]
+                
+        elif self.pool_mode == "avg":
+            # For average pooling, distribute the gradient evenly over all elements in the pooling window.
+            dA_curr_cols_reshaped += (dA_reshaped[:, None, :] / (self.kernel_size * self.kernel_size))
+            
+        else:
+            raise ValueError("pool_mode must be either 'max' or 'avg'")
+        
+        # Flatten dA_cols_reshaped back to (C * kernel_size * kernel_size, N * H_out * W_out)
+        dA_curr_cols = dA_curr_cols_reshaped.reshape(C * self.kernel_size * self.kernel_size, -1)
+        
+        # Use col2im to convert the column representation back to the image shape.
+        dA_curr = utils.col2im(dA_curr_cols, A.shape, self.kernel_size, self.kernel_size, self.stride, self.padding)
+        
+        return dA_curr
+
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[[[2,5],[0,2],[2,0]],
+                   [[3,0],[3,1],[1,4]],
+                   [[4,4],[1,0],[3,4]]],
+                  
+                  [[[5,1],[2,4],[3,4]],
+                   [[0,3],[0,5],[2,0]],
+                   [[4,0],[5,2],[2,1]]]])
+    
+    l = Pool(kernel_size=2, stride=1, padding=0, pool_mode="max")
+    
+    av, c = l.value(a)
+    
+    ad = l.backward(np.ones_like(av), c)
 
 
 
