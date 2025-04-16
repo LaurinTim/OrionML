@@ -147,7 +147,22 @@ class MinMaxScaler:
         return self.transform(arr)
     
 
-def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None, vmax3=None):
+def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None):
+    '''
+    Plot a confusion matrix.
+
+    Parameters
+    ----------
+    cmx : ndarray
+        Confusion matrix, can e.g. be obtained using sklearn.metrics.confusion_matrix.
+    labels : list
+        List containing the label names for the confusion matrix.
+    vmax1 : float, optional
+        Maximum value for the colormap in the first plot. The default is None.
+    vmax2 : float, optional
+        Maximum value for the colormap in the second plot. The default is None.
+
+    '''
     cmx_norm = 100*cmx / cmx.sum(axis=1, keepdims=True)
     cmx_norm = np.around(cmx_norm, 2)
     cmx_zero_diag = cmx_norm.copy()
@@ -173,9 +188,9 @@ def plot_confusion_matrix(cmx, labels, vmax1=None, vmax2=None, vmax3=None):
             else:
                 ax[1].text(j, i, cmx_zero_diag[i, j], ha="center", va="center", c="white", size=10)
          
-    im1 = ax[0].imshow(cmx_norm, vmax=vmax2)
+    im1 = ax[0].imshow(cmx_norm, vmax=vmax1)
     ax[0].set_title('%', size=15)
-    im2 = ax[1].imshow(cmx_zero_diag, vmax=vmax3)
+    im2 = ax[1].imshow(cmx_zero_diag, vmax=vmax2)
     ax[1].set_title('% and 0 diagonal', size=15)
  
     dividers = [make_axes_locatable(a) for a in ax]
