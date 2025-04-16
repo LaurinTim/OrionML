@@ -136,7 +136,7 @@ class Linear():
                     
         return out, z
     
-    def forward(self, prev_A, training=False):
+    def forward(self, prev_A, training=False, epoch=0):
         '''
         Forward step of a linear Layer in a Neural Network.
 
@@ -723,6 +723,13 @@ class Conv():
         
         self.w = np.zeros((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = np.zeros((1, self.out_channels))
+        
+        self.epoch = -1
+        self.t1 = []
+        self.t2 = []
+        self.t3 = []
+        self.t4 = []
+        self.t5 = []
                 
     def type(self):
         '''
@@ -814,7 +821,9 @@ class Conv():
             H_out = (H + 2*padding - FH)//stride + 1 and 
             W_out = (W + 2*padding - FW)//stride + 1.
         
-        """        
+        """
+        st1 = time()
+        
         N, H_prev, W_prev, C_prev = A.shape
 
         H_out = (H_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
@@ -832,10 +841,12 @@ class Conv():
         
         if self.flatten:
             output = output.reshape(output.shape[0], -1)
+            
+        self.t1[self.epoch] += time()-st1
                                 
         return output, (A_col, out_convoluted)
     
-    def forward(self, prev_A, training=None):
+    def forward(self, prev_A, training=None, epoch=0):
         '''
         Forward step of a convolutional Layer in a Neural Network.
 
@@ -860,6 +871,14 @@ class Conv():
                     Array containing the sliding windows of prev_A used for the convolution.
 
         '''
+        if self.epoch!=epoch-1:
+            self.epoch = epoch-1
+            self.t1.append(0)
+            self.t2.append(0)
+            self.t3.append(0)
+            self.t4.append(0)
+            self.t5.append(0)
+        
         curr_A, (A_col, A_convoluted) = self.value(prev_A, training=training)
         cache = (prev_A, A_col, A_convoluted)
         
@@ -885,6 +904,8 @@ class Conv():
         db : ndarray
             Gradient with respect to the biases, of shape (1, out_channels).
         """
+        st2 = time()
+        
         A_prev, A_col, A_convoluted = cache
         N, H, W, C = A_prev.shape
         
@@ -914,6 +935,8 @@ class Conv():
     
         # Use col2im to reshape dX_col back to input shape.
         curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding)
+        
+        self.t2[self.epoch] += time()-st2
     
         return curr_dA, dw, db
     
@@ -1298,13 +1321,7 @@ class Reshape():
         self.output_shape = output_shape
         
         #check if the input and output shape result in arrays with the same number of elements.
-        size_test = [1, 1]
-        for val in self.input_shape:
-            size_test[0] *= val
-        for val in self.output_shape:
-            size_test[1] *= val
-            
-        assert size_test[0]==size_test[1], "Input and output shaped in Reshape layer are not compatible."
+        assert math.prod(input_shape)==math.prod(output_shape), "Input and output shaped in Reshape layer are not compatible."
         
         self.trainable = False
         
