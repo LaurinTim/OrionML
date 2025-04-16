@@ -3,7 +3,6 @@ import math
 import copy
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import numba as nb
 
 
 def train_test_split(arr, train=1, shuffle=True):
@@ -223,7 +222,7 @@ def im2col_indices(x_shape, field_height, field_width, stride=1, padding=0):
     return (k, i, j)
 
 
-def im2col(x, field_height, field_width, stride=1, padding=0):
+def im2col(x, field_height, field_width, stride=1, padding=0, indices=None):
     '''
     Convert images to column matrix.
 
@@ -240,6 +239,10 @@ def im2col(x, field_height, field_width, stride=1, padding=0):
         Stride of the convolution. The default is 1.
     padding : int, optional
         Padding to be applied to the input. The default is 0.
+    indices : tuple, optional
+        Result from im2col_indices. If this function gets called multiple times with the same parameters 
+        except for x, it is more efficient to calculate the indices once and then pass them directly to 
+        this function. The default is None, in which case im2col_indices gets called to get the indices.
 
     Returns
     -------
@@ -252,14 +255,18 @@ def im2col(x, field_height, field_width, stride=1, padding=0):
         the first channel, and so on.
 
     '''
-    k, i, j = im2col_indices(x.shape, field_height, field_width, stride, padding)
+    if indices is None:
+        k, i, j = im2col_indices(x.shape, field_height, field_width, stride, padding)
+    else:
+        k, i, j = indices
+        
     x_padded = np.pad(x, ((0,), (padding,), (padding,), (0,)), mode="constant")
     cols = x_padded[:, i, j, k]  # shape: (N, C * field_height * field_width, out_height * out_width)
     cols = np.concatenate(cols, axis=1) # shape: (field_height * field_width * C, N * out_height * out_width)
     return cols
 
 
-def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0):
+def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0, indices=None):
     """
     Reconstruct images from their column matrix representation.
     
@@ -280,12 +287,22 @@ def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0):
         Stride used in the convolution. The default is 1.
     padding : int, optional
         Padding that was applied to the input images. The default is 0.
+    indices : tuple, optional
+        Result from im2col_indices. If this function gets called multiple times with the same parameters 
+        except for cols, it is more efficient to calculate the indices once and then pass them directly to 
+        this function. The default is None, in which case im2col_indices gets called to get the indices.
         
     Returns
     -------
     x : ndarray, shape: (N, H, W, C)
         Reconstructed images.
     """
+    # Get the indices for the patches.
+    if indices is None:
+        k, i, j = im2col_indices(x_shape, field_height, field_width, stride, padding)
+    else:
+        k, i, j = indices
+    
     N, H, W, C = x_shape
     H_padded, W_padded = H + 2 * padding, W + 2 * padding
     # Start with an array of zeros that will accumulate the results.

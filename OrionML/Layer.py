@@ -724,6 +724,8 @@ class Conv():
         self.w = np.zeros((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = np.zeros((1, self.out_channels))
         
+        self.im2col_indices = None
+        
         self.epoch = -1
         self.t1 = []
         self.t2 = []
@@ -829,7 +831,9 @@ class Conv():
         H_out = (H_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
         W_out = (W_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
         
-        A_col = utils.im2col(A, self.kernel_size, self.kernel_size, self.stride, self.padding)
+        st3 = time()
+        A_col = utils.im2col(A, self.kernel_size, self.kernel_size, stride=self.stride, padding=self.padding, indices=self.im2col_indices)
+        if training: self.t3[self.epoch] += time()-st3
         
         w_col = self.w.reshape(-1, self.out_channels)
         # Perform matrix multiplication.
@@ -871,6 +875,9 @@ class Conv():
                     Array containing the sliding windows of prev_A used for the convolution.
 
         '''
+        if self.im2col_indices is None:
+            self.im2col_indices = utils.im2col_indices(prev_A.shape, self.kernel_size, self.kernel_size, stride=self.stride, padding=self.padding)
+        
         if self.epoch!=epoch-1:
             self.epoch = epoch-1
             self.t1.append(0)
@@ -909,15 +916,18 @@ class Conv():
         A_prev, A_col, A_convoluted = cache
         N, H, W, C = A_prev.shape
         
+        st4 = time()
         if self.flatten:
             dA = dA.reshape(dA.shape[0], (A_prev.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1, (A_prev.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
         
         d_activ = self.activation_function.derivative(A_convoluted)
         dA = d_activ * dA
+        if training: self.t4[self.epoch] += time()-st4
     
         # Reshape upstream gradients:
         # dout is of shape (N, H_out, W_out, out_channels); convert it into 
         # shape (out_channels, N*H_out*W_out) for easier matrix multiplication.
+        st5 = time()
         dA_reshaped = dA.transpose(0, 3, 1, 2).reshape(self.out_channels, -1)
     
         # Gradient with respect to bias: sum over all spatial locations and examples.
@@ -932,9 +942,10 @@ class Conv():
         # Compute dX_col = weights (reshaped) dot dout_reshaped.
         w_col = self.w.reshape(-1, self.out_channels)  # shape: (FH*FW*C, out_channels)
         dA_col = np.matmul(w_col, dA_reshaped) #w_col.dot(dA_reshaped)      # shape: (FH*FW*C, N*H_out*W_out)
-    
+        
         # Use col2im to reshape dX_col back to input shape.
-        curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding)
+        curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding, indices = self.im2col_indices)
+        if training: self.t5[self.epoch] += time()-st5
         
         if training: self.t2[self.epoch] += time()-st2
     
