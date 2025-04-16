@@ -842,7 +842,7 @@ class Conv():
         if self.flatten:
             output = output.reshape(output.shape[0], -1)
             
-        self.t1[self.epoch] += time()-st1
+        if training: self.t1[self.epoch] += time()-st1
                                 
         return output, (A_col, out_convoluted)
     
@@ -936,7 +936,7 @@ class Conv():
         # Use col2im to reshape dX_col back to input shape.
         curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding)
         
-        self.t2[self.epoch] += time()-st2
+        if training: self.t2[self.epoch] += time()-st2
     
         return curr_dA, dw, db
     
