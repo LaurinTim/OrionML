@@ -136,7 +136,7 @@ class Linear():
                     
         return out, z
     
-    def forward(self, prev_A, training=False, epoch=0):
+    def forward(self, prev_A, training=False):
         '''
         Forward step of a linear Layer in a Neural Network.
 
@@ -164,7 +164,7 @@ class Linear():
                 Z : ndarray, shape: (number of samples, self.dim2)
                     Array after the weights and bias of the linear Layer are applied to the input data.
 
-        '''
+        '''        
         curr_A, Z = self.value(prev_A, training=training)
         cache = (prev_A, self.w, self.b, Z)
         
@@ -308,7 +308,7 @@ class Dropout():
                 curr_mask : ndarray, shape: (input size, output size)
                     Mask used in the dropout Layer.
                 
-        '''
+        '''        
         curr_A, curr_mask = self.value(prev_A, training=training)
         cache = (prev_A, curr_mask)
         
@@ -725,13 +725,6 @@ class Conv():
         self.b = np.zeros((1, self.out_channels))
         
         self.im2col_indices = None
-        
-        self.epoch = -1
-        self.t1 = []
-        self.t2 = []
-        self.t3 = []
-        self.t4 = []
-        self.t5 = []
                 
     def type(self):
         '''
@@ -824,16 +817,13 @@ class Conv():
             W_out = (W + 2*padding - FW)//stride + 1.
         
         """
-        st1 = time()
         
         N, H_prev, W_prev, C_prev = A.shape
 
         H_out = (H_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
         W_out = (W_prev + 2 * self.padding - self.kernel_size) // self.stride + 1
         
-        st3 = time()
         A_col = utils.im2col(A, self.kernel_size, self.kernel_size, stride=self.stride, padding=self.padding, indices=self.im2col_indices)
-        if training: self.t3[self.epoch] += time()-st3
         
         w_col = self.w.reshape(-1, self.out_channels)
         # Perform matrix multiplication.
@@ -845,12 +835,10 @@ class Conv():
         
         if self.flatten:
             output = output.reshape(output.shape[0], -1)
-            
-        if training: self.t1[self.epoch] += time()-st1
-                                
+                                            
         return output, (A_col, out_convoluted)
     
-    def forward(self, prev_A, training=None, epoch=0):
+    def forward(self, prev_A, training=None):
         '''
         Forward step of a convolutional Layer in a Neural Network.
 
@@ -875,17 +863,12 @@ class Conv():
                     Array containing the sliding windows of prev_A used for the convolution.
 
         '''
+        if self.padding=="same":
+            self.padding = math.floor(1/2 * (self.kernel_size + (self.stride - 1) * (prev_A.shape[1] - 1)))
+        
         if self.im2col_indices is None:
             self.im2col_indices = utils.im2col_indices(prev_A.shape, self.kernel_size, self.kernel_size, stride=self.stride, padding=self.padding)
-        
-        if self.epoch!=epoch-1:
-            self.epoch = epoch-1
-            self.t1.append(0)
-            self.t2.append(0)
-            self.t3.append(0)
-            self.t4.append(0)
-            self.t5.append(0)
-        
+
         curr_A, (A_col, A_convoluted) = self.value(prev_A, training=training)
         cache = (prev_A, A_col, A_convoluted)
         
@@ -911,23 +894,19 @@ class Conv():
         db : ndarray
             Gradient with respect to the biases, of shape (1, out_channels).
         """
-        st2 = time()
         
         A_prev, A_col, A_convoluted = cache
         N, H, W, C = A_prev.shape
         
-        st4 = time()
         if self.flatten:
             dA = dA.reshape(dA.shape[0], (A_prev.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1, (A_prev.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
         
         d_activ = self.activation_function.derivative(A_convoluted)
         dA = d_activ * dA
-        if training: self.t4[self.epoch] += time()-st4
     
         # Reshape upstream gradients:
         # dout is of shape (N, H_out, W_out, out_channels); convert it into 
         # shape (out_channels, N*H_out*W_out) for easier matrix multiplication.
-        st5 = time()
         dA_reshaped = dA.transpose(0, 3, 1, 2).reshape(self.out_channels, -1)
     
         # Gradient with respect to bias: sum over all spatial locations and examples.
@@ -945,10 +924,7 @@ class Conv():
         
         # Use col2im to reshape dX_col back to input shape.
         curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding, indices = self.im2col_indices)
-        if training: self.t5[self.epoch] += time()-st5
-        
-        if training: self.t2[self.epoch] += time()-st2
-    
+            
         return curr_dA, dw, db
     
 # %%
@@ -1430,6 +1406,121 @@ class Reshape():
         assert dA.shape == self.output_shape, "Shape of upstream gradient passed to backwards propagation in Reshape layer does not match the predefined output shape."
         
         dA_curr = dA.reshape(self.input_shape)
+        
+        return dA_curr
+
+
+class Flatten():
+    def __init__(self):
+        '''
+        Layer to flatten data. Can be used if e.g. a linear layer follows a pooling layer.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Shape of the input data.
+        output_shape : tuple
+            Shape of the output data.
+
+        Returns
+        -------
+        None.
+
+        '''
+                
+        self.trainable = False
+        
+    def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to Reshape layers.
+
+        '''
+        return "OrionML.Layer.Flatten"
+    
+    def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the Reshape layer with information about the output and input shapes.
+
+        '''
+        return f"OrionML.Layer.Flatten"
+    
+    def value(self, A, training=False):
+        '''
+        Reshape the input.
+        
+        Parameters
+        ----------
+        A : ndarray, shape: self.input_shape
+            Input Data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            layers. The default is False.
+
+        Returns
+        -------
+        A_curr : ndarray, shape: self.output_data
+            Reshaped input data.
+        cache : tuple
+            Empty tuple since no additional information is required for backwards propagation.
+
+        '''        
+        A_curr = A.reshape((A.shape[0], -1))
+        
+        cache = (A.shape[1:])
+        
+        return A_curr, cache
+    
+    def forward(self, prev_A, training=False):
+        '''
+        Forward pass for a Reshape layer.
+
+        Parameters
+        ----------
+        A : ndarray, shape: self.input_shape
+            Input Data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            layers. The default is False.
+
+        Returns
+        -------
+        A_curr : ndarray, shape: self.output_data
+            Reshaped input data.
+        cache : tuple
+            Empty tuple since no additional information is required for backwards propagation.
+
+        '''
+        A_curr, cache = self.value(prev_A, training=training)
+        return A_curr, cache
+    
+    def backward(self, dA, cache, training=False):
+        '''
+        Backward pass for a Reshape Layer.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: self.output_shape
+            Upstream gradient.
+        training : bool, optional
+            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            layers. The default is False.
+
+        Returns
+        -------
+        dA_curr : ndarray, shape: self.input_shape
+            Reshaped upstream gradient.
+
+        '''    
+        input_shape = cache
+        dA_curr = dA.reshape((-1, *input_shape))
         
         return dA_curr
 

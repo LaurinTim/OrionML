@@ -17,7 +17,7 @@ import Layer
 
 
 class Sequential():
-    def __init__(self, layers):
+    def __init__(self, layers, initializer=None):
         '''
         Sequence of layers for the input to a Neural Network.
 
@@ -28,6 +28,7 @@ class Sequential():
 
         '''
         self.layers = layers
+        self.initializer = initializer
         self.num_layers = len(layers)
         self.layer_dimensions = []
         self.trainable_layers = []
@@ -149,6 +150,101 @@ class Sequential():
                 self.param_pos.append(-1)
                 
         return
+    
+    def initialize_glorot(self):
+        parameters = {}
+        derivatives = {}
+        
+        for i in range(self.num_layers):
+            if self.trainable_layers[i]==True:
+                curr_layer_type = self.layers[i].type()
+                if curr_layer_type=="OrionML.Layer.Linear":
+                    limit = np.sqrt(6 / (self.layers[i].dim1 + self.layers[i].dim2))
+                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, size=tuple(self.layers[i].dimension))
+                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
+                    if self.bias_layers[i]==True:
+                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
+                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
+                    else:
+                        parameters[f"b layer {i}"] = np.zeros((1,1))
+                        derivatives[f"db layer {i}"] = np.zeros((1, 1))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
+                        
+                elif curr_layer_type=="OrionML.Layer.Conv":
+                    limit = np.sqrt(6 / (self.layers[i].dimension[0] * self.layers[i].dimension[1] * (self.layers[i].dimension[2] + self.layers[i].dimension[3])))
+                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, tuple(self.layers[i].dimension))
+                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
+                    if self.bias_layers[i]==True:
+                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
+                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
+                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
+                    else:
+                        parameters[f"b layer {i}"] = np.zeros((1,1))
+                        derivatives[f"db layer {i}"] = np.zeros((1,1))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
+                        
+                elif curr_layer_type=="OrionML.Layer.BatchNorm":
+                    #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim) + 1
+                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim)
+                    derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    self.layers[i].gamma = parameters[f"gamma layer {i}"]
+                    self.layers[i].beta = parameters[f"beta layer {i}"]
+                    
+        return parameters, derivatives
+    
+    def initialize_he(self):
+        parameters = {}
+        derivatives = {}
+        
+        for i in range(self.num_layers):
+            if self.trainable_layers[i]==True:
+                curr_layer_type = self.layers[i].type()
+                if curr_layer_type=="OrionML.Layer.Linear":
+                    limit = np.sqrt(6 / self.layers[i].dim1)
+                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, size=tuple(self.layers[i].dimension))
+                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
+                    if self.bias_layers[i]==True:
+                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
+                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
+                    else:
+                        parameters[f"b layer {i}"] = np.zeros((1,1))
+                        derivatives[f"db layer {i}"] = np.zeros((1, 1))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
+                        
+                elif curr_layer_type=="OrionML.Layer.Conv":
+                    limit = np.sqrt(6 / (self.layers[i].dimension[0] * self.layers[i].dimension[1] * self.layers[i].dimension[2]))
+                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, tuple(self.layers[i].dimension))
+                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
+                    if self.bias_layers[i]==True:
+                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
+                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
+                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
+                    else:
+                        parameters[f"b layer {i}"] = np.zeros((1,1))
+                        derivatives[f"db layer {i}"] = np.zeros((1,1))
+                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
+                        
+                elif curr_layer_type=="OrionML.Layer.BatchNorm":
+                    #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim) + 1
+                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim)
+                    derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
+                    self.layers[i].gamma = parameters[f"gamma layer {i}"]
+                    self.layers[i].beta = parameters[f"beta layer {i}"]
+                    
+        return parameters, derivatives
+        
                 
     def initialize_parameters(self):
         '''
@@ -162,6 +258,12 @@ class Sequential():
             List containing the bias of the trainable Layers in the sequential.
 
         '''
+        if self.initializer == "glorot":
+            return self.initialize_glorot()
+        
+        if self.initializer == "he":
+            return self.initialize_he()
+        
         parameters = {}
         derivatives = {}
         
@@ -169,7 +271,7 @@ class Sequential():
             if self.trainable_layers[i]==True:
                 curr_layer_type = self.layers[i].type()
                 if curr_layer_type=="OrionML.Layer.Linear":
-                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
+                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-1/np.sqrt(self.layer_dimensions[i][0])
                     derivatives[f"dw layer {i}"] = np.zeros((self.layer_dimensions[i][0], self.layer_dimensions[i][1]))
                     if self.bias_layers[i]==True:
                         #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
@@ -408,18 +510,15 @@ class NeuralNetwork():
             if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
                 dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dw, curr_db]] + grads
-                self.dbl += [np.copy(curr_db)]
-                self.dwl += [np.copy(curr_dw)]
+                #self.dbl += [np.copy(curr_db)]
+                #self.dwl += [np.copy(curr_dw)]
                 
-            elif curr_layer_type == "OrionML.Layer.Dropout":
+            elif curr_layer_type in ["OrionML.Layer.Dropout", "OrionML.Layer.Reshape", "OrionML.Layer.Flatten", "OrionML.Layer.Pool"]:
                 dA = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 
-            elif curr_layer_type == "OrionML.Layer.BatchNorm":
+            elif curr_layer_type in ["OrionML.Layer.BatchNorm", "OrionML.Layer.BatchNorm2D"]:
                 dA, curr_dgamma, curr_dbeta = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                 grads = [[dA, curr_dgamma, curr_dbeta]] + grads
-                
-            elif curr_layer_type == "OrionML.Layer.Pool":
-                dA = self.sequential[i].backward(curr_dA, curr_cache, training=True)
                                         
         return [[val[0] for val in grads], [val[1] for val in grads], [val[2] for val in grads]]
     
@@ -460,9 +559,6 @@ class NeuralNetwork():
                     
                     self.params[f"w layer {layer_pos}"] = layer.w
                     self.params[f"b layer {layer_pos}"] = layer.b
-                    
-                    #self.bl += [np.copy(layer.b)]
-                    #self.wl += [np.copy(layer.w)]
                 
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
                     layer.gamma -= self.learning_rate * grads[1][train_pos]
@@ -501,9 +597,6 @@ class NeuralNetwork():
                                     
                     layer.w -= (self.learning_rate * (self.m_dw[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_dw[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
                     layer.b -= (self.learning_rate * (self.m_db[layer_pos] / (1-self.beta1**self.epoch))/(np.sqrt(self.v_db[layer_pos] / (1-self.beta2**self.epoch)) + self.epsilon))
-
-                    #self.bl += [layer.b]
-                    #self.wl += [layer.w]
 
                     self.params[f"w layer {layer_pos}"] = layer.w
                     self.params[f"b layer {layer_pos}"] = layer.b
@@ -547,13 +640,8 @@ class NeuralNetwork():
         '''        
         num_samples = x.shape[0]
         
-        self.dbl = []
-        self.dwl = []
-        self.bl = []
-        self.wl = []
-        
-        self.tfor = 0
-        self.tbak = 0
+        self.tfor = []
+        self.tbak = []
         
         if batch_size==None:
             x_batches = [x]
@@ -566,23 +654,30 @@ class NeuralNetwork():
             self.epoch += 1
             start_time = time()
             
+            curr_tfor = 0
+            curr_tbak = 0
+            
             for curr_x, curr_y in zip(x_batches, y_batches):
                 stfor = time()
                 A, caches = self.forward(curr_x)
-                self.tfor += time()-stfor
+                curr_tfor += time()-stfor
                                 
                 AL = self.loss_function.value(curr_y, A)
                 dAL = self.loss_function.derivative(curr_y, A)
                 
                 stbak = time()
                 grads = self.backward(dAL, caches)
-                self.tbak += time()-stbak
+                curr_tbak += time()-stbak
                                 
                 self.update_parameters(grads)
                 
                 tst = np.array([np.array([np.isnan(val).any() for val in bal]).any() for bal in grads]).any()
                 assert not tst, "hello nan"
                 
+                print(AL)
+                                                
+            self.tfor.append(curr_tfor)
+            self.tbak.append(curr_tbak)
             self.times.append(time()-start_time)
                             
             self.J_h.append(AL)
@@ -653,11 +748,37 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
+    seq = Sequential([Layer.Conv(1, 28, 5, "relu", padding="same"), Layer.BatchNorm2D(28), Layer.Conv(28, 28, 5, "relu"), Layer.Pool(2, 2, pool_mode="max"), 
+                      Layer.Dropout(0.25), Layer.Conv(28, 32, 5, "relu", padding="same"), Layer.BatchNorm2D(32), Layer.Conv(32, 32, 5, "relu"), 
+                      Layer.Pool(2, 2, pool_mode="max"), Layer.Dropout(0.25), Layer.Flatten(), Layer.Linear(512, 512, activation="relu"), Layer.Dropout(0.25), 
+                      Layer.Linear(512, 10, activation="softmax")])
+    
+    nn = NeuralNetwork(seq, optimizer="adam", loss="hinge", learning_rate=1e-5, verbose=20)
+    
+    nn.fit(train_X, train_y, epochs=2, batch_size=256)#, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Conv(1, 28, 5, "relu"), Layer.BatchNorm2D(28), Layer.Pool(2, 2, pool_mode="max"), 
+                      Layer.Dropout(0.25), Layer.Conv(28, 32, 5, "relu"), Layer.BatchNorm2D(32), 
+                      Layer.Pool(2, 2, pool_mode="max"), Layer.Dropout(0.25), Layer.Flatten(), 
+                      Layer.Linear(512, 10, activation="softmax")], initializer="he")
+    
+    nn = NeuralNetwork(seq, optimizer="adam", loss="hinge", learning_rate=1e-3, verbose=20)
+    
+    nn.fit(train_X, train_y, epochs=2, batch_size=512)#, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
     seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2, flatten=True), Layer.Linear(507, 10, "softmax")])
     
     nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-1, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=100, batch_size=1024, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=50, batch_size=1024, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
     
@@ -665,14 +786,15 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2), Layer.Pool(2, 2, pool_mode="max"), Layer.Conv(3, 5, 1, "linear", stride=1, flatten=True), Layer.Linear(180, 10, "softmax")])
+    seq = Sequential([Layer.Conv(1, 3, 3, "relu", stride=1), Layer.Conv(3, 6, 4, "relu", stride=2), Layer.Pool(2, 2, pool_mode="max"), 
+                      Layer.Conv(6, 12, 2, "relu", stride=1, flatten=True), Layer.Linear(300, 10, "softmax")])
     
-    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-5, verbose=True)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-5, verbose=20)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=1024, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=10, batch_size=32, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
-    
+
 # %%
 
 if __name__ == "__main__":
@@ -681,13 +803,21 @@ if __name__ == "__main__":
     
     nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-3, verbose=20)
     
-    nn.fit(train_X[:20000], train_y[:20000], epochs=100, batch_size=32, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=10, batch_size=16, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
 
 # %%
 
-
+if __name__ == "__main__":
+    np.random.seed(0)
+    seq = Sequential([Layer.Conv(1, 3, 1, "linear", stride=1, flatten=True), Layer.Linear(2352, 10, "softmax")])
+    
+    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-2, verbose=20)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=16, validation=[val_X, val_y])
+    
+    #print(np.mean(nn.times), np.median(nn.times))
 
 # %%
 
@@ -761,9 +891,14 @@ if __name__ == "__main__":
     seq = Sequential([Layer.Linear(784, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
     #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=1e-1, verbose=False)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="hinge", learning_rate=1e-5, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=2, batch_size=None, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=500, batch_size=None, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    plt.scatter(np.arange(len(nn.times)), nn.times)
     
 # %%
 
