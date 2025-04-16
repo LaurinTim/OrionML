@@ -1275,6 +1275,135 @@ if __name__ == "__main__":
     
     ad = l.backward(np.ones_like(av), c)
 
+# %%
+
+class Reshape():
+    def __init__(self, input_shape, output_shape):
+        '''
+        Layer to reshape data. Can be used if e.g. a linear layer follows a pooling layer.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Shape of the input data.
+        output_shape : tuple
+            Shape of the output data.
+
+        Returns
+        -------
+        None.
+
+        '''
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+        
+        #check if the input and output shape result in arrays with the same number of elements.
+        size_test = [1, 1]
+        for val in self.input_shape:
+            size_test[0] *= val
+        for val in self.output_shape:
+            size_test[1] *= val
+            
+        assert size_test[0]==size_test[1], "Input and output shaped in Reshape layer are not compatible."
+        
+        self.trainable = False
+        
+    def type(self):
+        '''
+
+        Returns
+        -------
+        str
+            String unique to Reshape layers.
+
+        '''
+        return "OrionML.Layer.Reshape"
+    
+    def description(self):
+        '''
+
+        Returns
+        -------
+        str
+            Description of the Reshape layer with information about the output and input shapes.
+
+        '''
+        return f"OrionML.Layer.Reshape (input shape: {self.input_shape}, output shape: {self.output_shape})"
+    
+    def value(self, A, training=False):
+        '''
+        Reshape the input.
+        
+        Parameters
+        ----------
+        A : ndarray, shape: self.input_shape
+            Input Data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            layers. The default is False.
+
+        Returns
+        -------
+        A_curr : ndarray, shape: self.output_data
+            Reshaped input data.
+        cache : tuple
+            Empty tuple since no additional information is required for backwards propagation.
+
+        '''
+        assert A.shape == self.input_shape, "Shape of upstream gradient passed to forwards propagation in Reshape layer does not match the predefined input shape."
+        
+        A_curr = A.reshape(self.output_shape)
+        
+        cache = ()
+        
+        return A_curr, cache
+    
+    def forward(self, prev_A, training=False):
+        '''
+        Forward pass for a Reshape layer.
+
+        Parameters
+        ----------
+        A : ndarray, shape: self.input_shape
+            Input Data.
+        training : bool/None, optional
+            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            layers. The default is False.
+
+        Returns
+        -------
+        A_curr : ndarray, shape: self.output_data
+            Reshaped input data.
+        cache : tuple
+            Empty tuple since no additional information is required for backwards propagation.
+
+        '''
+        A_curr, cache = self.value(prev_A, training=training)
+        return A_curr, cache
+    
+    def backward(self, dA, cache, training=False):
+        '''
+        Backward pass for a Reshape Layer.
+
+        Parameters
+        ----------
+        dA : ndarray, shape: self.output_shape
+            Upstream gradient.
+        training : bool, optional
+            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            layers. The default is False.
+
+        Returns
+        -------
+        dA_curr : ndarray, shape: self.input_shape
+            Reshaped upstream gradient.
+
+        '''    
+        assert dA.shape == self.output_shape, "Shape of upstream gradient passed to backwards propagation in Reshape layer does not match the predefined output shape."
+        
+        dA_curr = dA.reshape(self.input_shape)
+        
+        return dA_curr
 
 
 
