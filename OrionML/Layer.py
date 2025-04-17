@@ -1305,14 +1305,12 @@ if __name__ == "__main__":
 # %%
 
 class Reshape():
-    def __init__(self, input_shape, output_shape):
+    def __init__(self, output_shape):
         '''
         Layer to reshape data. Can be used if e.g. a linear layer follows a pooling layer.
 
         Parameters
         ----------
-        input_shape : tuple
-            Shape of the input data.
         output_shape : tuple
             Shape of the output data.
 
@@ -1321,12 +1319,9 @@ class Reshape():
         None.
 
         '''
-        self.input_shape = input_shape
+        self.input_shape = None
         self.output_shape = output_shape
-        
-        #check if the input and output shape result in arrays with the same number of elements.
-        assert math.prod(input_shape)==math.prod(output_shape), "Input and output shaped in Reshape layer are not compatible."
-        
+                
         self.trainable = False
         
         self.in_dim = None
@@ -1374,9 +1369,9 @@ class Reshape():
             Empty tuple since no additional information is required for backwards propagation.
 
         '''
-        assert A.shape == self.input_shape, "Shape of upstream gradient passed to forwards propagation in Reshape layer does not match the predefined input shape."
+        assert A.shape[1:] == self.input_shape, "Shape of upstream gradient passed to forwards propagation in Reshape layer does not match the predefined input shape."
         
-        A_curr = A.reshape(self.output_shape)
+        A_curr = A.reshape(-1, *self.output_shape)
         
         cache = ()
         
@@ -1402,6 +1397,8 @@ class Reshape():
             Empty tuple since no additional information is required for backwards propagation.
 
         '''
+        self.input_shape = prev_A.shape[1:]
+        
         A_curr, cache = self.value(prev_A, training=training)
         return A_curr, cache
     
@@ -1423,9 +1420,9 @@ class Reshape():
             Reshaped upstream gradient.
 
         '''    
-        assert dA.shape == self.output_shape, "Shape of upstream gradient passed to backwards propagation in Reshape layer does not match the predefined output shape."
+        assert dA.shape[1:] == self.output_shape, "Shape of upstream gradient passed to backwards propagation in Reshape layer does not match the predefined output shape."
         
-        dA_curr = dA.reshape(self.input_shape)
+        dA_curr = dA.reshape(-1, *self.input_shape)
         
         return dA_curr
 

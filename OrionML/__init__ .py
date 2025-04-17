@@ -83,9 +83,7 @@ class Sequential():
         x_next : ndarray, shape: (number of samples, self.output_dim)
             Result after the input is passed through all layers in the Sequential.
 
-        '''
-        #assert x_in.shape[1] == self.feature_num, "Number of features in the input does not match with the model."
-        
+        '''        
         x_next = x_in
         
         for layer in self.layers:
@@ -174,13 +172,37 @@ class Sequential():
         
         return params, derivs
     
-    def initialize_layer_dimensions(self, input_shape):
+    def initialize_layer_dimensions(self, input_shape) -> None:
+        '''
+        Define in and out dimensions for each layer.
+
+        Parameters
+        ----------
+        input_shape : tuple
+            Shape of a single sample passed to the sequential.
+
+        '''
         curr_shape = input_shape
         
         for i,layer in enumerate(self.layers):
+            layer.in_dim = curr_shape
+            
             if layer.type()=="OrionML.Layer.Linear":
-                layer.in_dim = None
-                layer.out_dim = None
+                curr_shape = (layer.dim2,)
+                
+            elif layer.type() in ["OrionML.Layer.Conv", "OrionML.Layer.Pool"]:
+                H, W, _ = curr_shape
+                H_out = (H + 2*layer.padding - layer.kernel_size)//layer.stride + 1
+                W_out = (W + 2*layer.padding - layer.kernel_size)//layer.stride + 1
+                curr_shape = (H_out, W_out, layer.out_channels,)
+                
+            elif layer.type()=="OrionML.Layer.Reshape":
+                curr_shape = (layer.output_shape[1:],)
+                
+            elif layer.type()=="OrionML.Layer.Flatten":
+                curr_shape = (math.prod(curr_shape),)
+                
+            layer.out_dim = curr_shape
         
         return
 
@@ -239,7 +261,9 @@ class NeuralNetwork():
         
         self.params, self.derivs = self.sequential.initialize_parameters()
         
-        self.input_dims = None
+        self.buffers = {}
+        
+        self.input_dim = None
         
         self.caches = []
         
@@ -269,11 +293,27 @@ class NeuralNetwork():
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
     
-    def init_buffers(self, batch_size, input_dim):
+    def init_buffers(self, batch_size):
         activations = [None] * (len(self.sequential) + 1)
-        activations[0] = np.empty((batch_size, input_dim))
+        activations[0] = np.empty((batch_size, *self.input_dim))
+        
+        grad_a = []
+        grad_b = []
+        
         for i, layer in enumerate(self.sequential):
-            activations[i+1] = np.empty((batch_size, layer.out_dim))
+            activations[i+1] = np.empty((batch_size, *layer.out_dim))
+            
+            if layer.trainable:
+                if layer.type() in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
+                    grad_a.append(np.empty_like(layer.w))
+                    grad_b.append(np.empty_like(layer.b))
+                    
+                elif layer.type() in ["OrionML.Layer.BatchNorm", "OrionML.Layer.BatchNorm2D"]:
+                    grad_a.append(np.empty_like(layer.gamma))
+                    grad_b.append(np.empty_like(layer.beta))
+            
+        self.buffers["activations"] = activations
+        self.buffers["grads"] = (grad_a, grad_b)
     
     def __select_optimizer(self):
         '''
@@ -524,8 +564,8 @@ class NeuralNetwork():
         '''        
         num_samples = x.shape[0]
         
-        self.input_dims = x.shape[1:]
-        
+        self.input_dim = x.shape[1:]
+                
         self.tfor = []
         self.tbak = []
         
@@ -629,6 +669,19 @@ if __name__ == "__main__":
     train_X = train_X.reshape(train_X.shape[0], 28, 28, 1)
     val_X = val_X.reshape(val_X.shape[0], 28, 28, 1)
     
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
+    #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 144, activation="relu"), Layer.Reshape((12, 12, 1)), Layer.Conv(1, 6, 5, activation="relu"), 
+                      Layer.Pool(2, 2, pool_mode="max"), Layer.Flatten(), Layer.Linear(96, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 45, activation="relu"), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=1e-4, verbose=10)
+    
+    nn.fit(train_X, train_y, epochs=100, batch_size=32, validation=[val_X, val_y])
+        
 # %%
 
 if __name__ == "__main__":
