@@ -2,7 +2,6 @@ import numpy as np
 import math
 import copy
 from time import time
-import numba as nb
 
 import os
 os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
@@ -44,6 +43,9 @@ class Linear():
         
         self.trainable = True
         self.dimension = np.array([dim1, dim2])
+        
+        self.in_dim = None
+        self.out_dim = None
                 
     def type(self):
         '''
@@ -233,6 +235,9 @@ class Dropout():
         
         self.trainable = False
         
+        self.in_dim = None
+        self.out_dim = None
+        
     def type(self):
         '''
 
@@ -372,6 +377,9 @@ class BatchNorm():
         self.running_variance = np.zeros((1, self.sample_dim))
         
         self.trainable = True
+        
+        self.in_dim = None
+        self.out_dim = None
         
     def type(self):
         '''
@@ -536,6 +544,9 @@ class BatchNorm2D():
         self.running_variance = np.zeros((1, self.channels))
         
         self.trainable = True
+        
+        self.in_dim = None
+        self.out_dim = None
         
     def type(self):
         '''
@@ -725,6 +736,9 @@ class Conv():
         self.b = np.zeros((1, self.out_channels))
         
         self.im2col_indices = None
+        
+        self.in_dim = None
+        self.out_dim = None
                 
     def type(self):
         '''
@@ -1096,6 +1110,9 @@ class Pool():
         
         self.trainable = False
         
+        self.in_dim = None
+        self.out_dim = None
+        
     def type(self):
         '''
 
@@ -1312,6 +1329,9 @@ class Reshape():
         
         self.trainable = False
         
+        self.in_dim = None
+        self.out_dim = None
+        
     def type(self):
         '''
 
@@ -1429,6 +1449,9 @@ class Flatten():
         '''
                 
         self.trainable = False
+        
+        self.in_dim = None
+        self.out_dim = None
         
     def type(self):
         '''

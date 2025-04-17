@@ -1,4 +1,5 @@
 import numpy as np
+
 import matplotlib.pyplot as plt
 import math
 import copy
@@ -673,12 +674,9 @@ class NeuralNetwork():
                 
                 tst = np.array([np.array([np.isnan(val).any() for val in bal]).any() for bal in grads]).any()
                 assert not tst, "hello nan"
-                
-                print(AL)
-                                                
+                                                                
             self.tfor.append(curr_tfor)
             self.tbak.append(curr_tbak)
-            self.times.append(time()-start_time)
                             
             self.J_h.append(AL)
             if self.verbose and ((i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0):
@@ -687,17 +685,19 @@ class NeuralNetwork():
                     same_arr_val = np.array([np.array_equal(validation[1][i], pred_val[i]) for i in range(len(validation[1]))])
                     acc_val = np.sum(same_arr_val)/len(validation[1])
                     
-                    pred_train = np.array([np.random.multinomial(1,val) for val in self.sequential(x)])
-                    same_arr_train = np.array([np.array_equal(y[i], pred_train[i]) for i in range(len(y))])
-                    acc_train = np.sum(same_arr_train)/len(y)
+                    #pred_train = np.array([np.random.multinomial(1,val) for val in self.sequential(x)])
+                    #same_arr_train = np.array([np.array_equal(y[i], pred_train[i]) for i in range(len(y))])
+                    #acc_train = np.sum(same_arr_train)/len(y)
                     
                     print(f"Iteration {i+1:4}:")
                     #print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):8.4}, {AL:8.4}), accuracy {100*acc_train:2.1f}%.\n")
-                    print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):5.4}), accuracy {100*acc_train:2.1f}%.")
+                    #print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):5.4}), accuracy {100*acc_train:2.1f}%.")
                     print(f"Validation: Loss {self.loss_function.value(validation[1], pred_val):8.4} ({self.loss_function.value(validation[1], self.sequential(validation[0])):5.10}), accuracy {100*acc_val:2.1f}%.\n")
                     
                 else:
                     print(f"Iteration {i+1:4} training Loss: {AL:1.4}")
+                    
+            self.times.append(time()-start_time)
                         
         return
 
@@ -705,7 +705,7 @@ class NeuralNetwork():
 
 if __name__ == "__main__":
 
-    np.random.seed(0)
+    npy.random.seed(0)
     
     df1 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train1.csv", delimiter=",", header=None)
 
@@ -748,6 +748,19 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
+    seq = Sequential([Layer.Conv(1, 3, 5, "relu"), Layer.BatchNorm2D(3), Layer.Pool(2, 2, pool_mode="max"), 
+                      Layer.Dropout(0.25), Layer.Conv(3, 6, 5, "relu"), Layer.BatchNorm2D(6), 
+                      Layer.Pool(2, 2, pool_mode="max"), Layer.Dropout(0.25), Layer.Flatten(), 
+                      Layer.Linear(96, 10, activation="softmax")], initializer="he")
+    
+    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=1e-2, verbose=10)
+    
+    nn.fit(train_X, train_y, epochs=5, batch_size=256)#, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
     seq = Sequential([Layer.Conv(1, 28, 5, "relu", padding="same"), Layer.BatchNorm2D(28), Layer.Conv(28, 28, 5, "relu"), Layer.Pool(2, 2, pool_mode="max"), 
                       Layer.Dropout(0.25), Layer.Conv(28, 32, 5, "relu", padding="same"), Layer.BatchNorm2D(32), Layer.Conv(32, 32, 5, "relu"), 
                       Layer.Pool(2, 2, pool_mode="max"), Layer.Dropout(0.25), Layer.Flatten(), Layer.Linear(512, 512, activation="relu"), Layer.Dropout(0.25), 
@@ -761,24 +774,11 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Conv(1, 28, 5, "relu"), Layer.BatchNorm2D(28), Layer.Pool(2, 2, pool_mode="max"), 
-                      Layer.Dropout(0.25), Layer.Conv(28, 32, 5, "relu"), Layer.BatchNorm2D(32), 
-                      Layer.Pool(2, 2, pool_mode="max"), Layer.Dropout(0.25), Layer.Flatten(), 
-                      Layer.Linear(512, 10, activation="softmax")], initializer="he")
+    seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2), Layer.Flatten(), Layer.Linear(507, 10, "softmax")])
     
-    nn = NeuralNetwork(seq, optimizer="adam", loss="hinge", learning_rate=1e-3, verbose=20)
+    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=1e-3, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=2, batch_size=512)#, validation=[val_X, val_y])
-    
-# %%
-
-if __name__ == "__main__":
-    np.random.seed(0)
-    seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2, flatten=True), Layer.Linear(507, 10, "softmax")])
-    
-    nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-1, verbose=True)
-    
-    nn.fit(train_X, train_y, epochs=50, batch_size=1024, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=5, batch_size=256)#, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
     
