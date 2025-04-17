@@ -19,7 +19,7 @@ import initializer
 
 
 class Sequential():
-    def __init__(self, layers, initializer=None):
+    def __init__(self, layers, initializer="uniform"):
         '''
         Sequence of layers for the input to a Neural Network.
 
@@ -154,6 +154,15 @@ class Sequential():
         return
     
     def initialize_parameters(self):
+        '''
+        Initialize the parameters in the trainable Layers of the Sequential.
+
+        Returns
+        -------
+        
+
+        '''
+        
         if self.initializer in ["glorot", "Xavier"]:
             params, derivs = initializer.glorot(self.layers)
             
@@ -164,6 +173,16 @@ class Sequential():
             params, derivs = initializer.uniform(self.layers)
         
         return params, derivs
+    
+    def initialize_layer_dimensions(self, input_shape):
+        curr_shape = input_shape
+        
+        for i,layer in enumerate(self.layers):
+            if layer.type()=="OrionML.Layer.Linear":
+                layer.in_dim = None
+                layer.out_dim = None
+        
+        return
 
 
 class NeuralNetwork():
@@ -219,6 +238,8 @@ class NeuralNetwork():
         self.loss_function = self.__select_loss_function()
         
         self.params, self.derivs = self.sequential.initialize_parameters()
+        
+        self.input_dims = None
         
         self.caches = []
         
@@ -503,6 +524,8 @@ class NeuralNetwork():
         '''        
         num_samples = x.shape[0]
         
+        self.input_dims = x.shape[1:]
+        
         self.tfor = []
         self.tbak = []
         
@@ -614,7 +637,7 @@ if __name__ == "__main__":
     
     nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=1e-3, verbose=True)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=256)#, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=2, batch_size=256)#, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
     
@@ -665,7 +688,7 @@ if __name__ == "__main__":
     
     nn = NeuralNetwork(seq, optimizer="gd", loss="mse", learning_rate=1e-3, verbose=20)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=16, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=5, batch_size=16, validation=[val_X, val_y])
     
     #print(np.mean(nn.times), np.median(nn.times))
 
