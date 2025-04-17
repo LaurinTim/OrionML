@@ -15,6 +15,7 @@ import method
 import activation
 import regularizer
 import Layer
+import initializer
 
 
 class Sequential():
@@ -152,162 +153,17 @@ class Sequential():
                 
         return
     
-    def initialize_glorot(self):
-        parameters = {}
-        derivatives = {}
-        
-        for i in range(self.num_layers):
-            if self.trainable_layers[i]==True:
-                curr_layer_type = self.layers[i].type()
-                if curr_layer_type=="OrionML.Layer.Linear":
-                    limit = np.sqrt(6 / (self.layers[i].dim1 + self.layers[i].dim2))
-                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, size=tuple(self.layers[i].dimension))
-                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
-                    if self.bias_layers[i]==True:
-                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
-                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
-                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
-                    else:
-                        parameters[f"b layer {i}"] = np.zeros((1,1))
-                        derivatives[f"db layer {i}"] = np.zeros((1, 1))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
-                        
-                elif curr_layer_type=="OrionML.Layer.Conv":
-                    limit = np.sqrt(6 / (self.layers[i].dimension[0] * self.layers[i].dimension[1] * (self.layers[i].dimension[2] + self.layers[i].dimension[3])))
-                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, tuple(self.layers[i].dimension))
-                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
-                    if self.bias_layers[i]==True:
-                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
-                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
-                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
-                    else:
-                        parameters[f"b layer {i}"] = np.zeros((1,1))
-                        derivatives[f"db layer {i}"] = np.zeros((1,1))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
-                        
-                elif curr_layer_type=="OrionML.Layer.BatchNorm":
-                    #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim) + 1
-                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim)
-                    derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    self.layers[i].gamma = parameters[f"gamma layer {i}"]
-                    self.layers[i].beta = parameters[f"beta layer {i}"]
-                    
-        return parameters, derivatives
-    
-    def initialize_he(self):
-        parameters = {}
-        derivatives = {}
-        
-        for i in range(self.num_layers):
-            if self.trainable_layers[i]==True:
-                curr_layer_type = self.layers[i].type()
-                if curr_layer_type=="OrionML.Layer.Linear":
-                    limit = np.sqrt(6 / self.layers[i].dim1)
-                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, size=tuple(self.layers[i].dimension))
-                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
-                    if self.bias_layers[i]==True:
-                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
-                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
-                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
-                    else:
-                        parameters[f"b layer {i}"] = np.zeros((1,1))
-                        derivatives[f"db layer {i}"] = np.zeros((1, 1))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
-                        
-                elif curr_layer_type=="OrionML.Layer.Conv":
-                    limit = np.sqrt(6 / (self.layers[i].dimension[0] * self.layers[i].dimension[1] * self.layers[i].dimension[2]))
-                    parameters[f"w layer {i}"] = np.random.uniform(-limit, limit, tuple(self.layers[i].dimension))
-                    derivatives[f"dw layer {i}"] = np.zeros(tuple(self.layers[i].dimension))
-                    if self.bias_layers[i]==True:
-                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
-                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
-                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
-                    else:
-                        parameters[f"b layer {i}"] = np.zeros((1,1))
-                        derivatives[f"db layer {i}"] = np.zeros((1,1))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
-                        
-                elif curr_layer_type=="OrionML.Layer.BatchNorm":
-                    #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim) + 1
-                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim)
-                    derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    self.layers[i].gamma = parameters[f"gamma layer {i}"]
-                    self.layers[i].beta = parameters[f"beta layer {i}"]
-                    
-        return parameters, derivatives
-        
-                
     def initialize_parameters(self):
-        '''
-        Initialize the parameters in the trainable Layers of the Sequential.
-
-        Returns
-        -------
-        w_temp : list
-            List containing the weights of the trainable Layers in the sequential.
-        b_temp : list
-            List containing the bias of the trainable Layers in the sequential.
-
-        '''
-        if self.initializer == "glorot":
-            return self.initialize_glorot()
+        if self.initializer in ["glorot", "Xavier"]:
+            params, derivs = initializer.glorot(self.layers)
+            
+        elif self.initializer=="he":
+            params, derivs = initializer.he(self.layers)
+            
+        else:
+            params, derivs = initializer.uniform(self.layers)
         
-        if self.initializer == "he":
-            return self.initialize_he()
-        
-        parameters = {}
-        derivatives = {}
-        
-        for i in range(self.num_layers):
-            if self.trainable_layers[i]==True:
-                curr_layer_type = self.layers[i].type()
-                if curr_layer_type=="OrionML.Layer.Linear":
-                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1]) * 1e-1/np.sqrt(self.layer_dimensions[i][0])
-                    derivatives[f"dw layer {i}"] = np.zeros((self.layer_dimensions[i][0], self.layer_dimensions[i][1]))
-                    if self.bias_layers[i]==True:
-                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][1]) * 1e-3/np.sqrt(self.layer_dimensions[i][0])
-                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
-                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][1]))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
-                    else:
-                        parameters[f"b layer {i}"] = np.zeros((1,1))
-                        derivatives[f"db layer {i}"] = np.zeros((1, 1))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
-                        
-                elif curr_layer_type=="OrionML.Layer.Conv":
-                    parameters[f"w layer {i}"] = np.random.rand(self.layer_dimensions[i][0], self.layer_dimensions[i][1], self.layer_dimensions[i][2], self.layer_dimensions[i][3]) * 1/np.sqrt(self.layer_dimensions[i][2])
-                    derivatives[f"dw layer {i}"] = np.zeros((self.layer_dimensions[i][0], self.layer_dimensions[i][1], self.layer_dimensions[i][2], self.layer_dimensions[i][3]))
-                    if self.bias_layers[i]==True:
-                        #parameters[f"b layer {i}"] = np.random.rand(1, self.layer_dimensions[i][3]) * 1e-3/np.sqrt(self.layer_dimensions[i][2])
-                        parameters[f"b layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
-                        derivatives[f"db layer {i}"] = np.zeros((1, self.layer_dimensions[i][3]))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"], parameters[f"b layer {i}"])
-                    else:
-                        parameters[f"b layer {i}"] = np.zeros((1,1))
-                        derivatives[f"db layer {i}"] = np.zeros((1,1))
-                        self.layers[i].update_parameters(parameters[f"w layer {i}"])
-                        
-                elif curr_layer_type=="OrionML.Layer.BatchNorm":
-                    #parameters[f"gamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    #parameters[f"beta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    parameters[f"gamma layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim) + 1
-                    parameters[f"beta layer {i}"] = np.random.rand(1, self.layers[i].sample_dim) * 1e-2/np.sqrt(self.layers[i].sample_dim)
-                    derivatives[f"dgamma layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    derivatives[f"dbeta layer {i}"] = np.zeros((1, self.layers[i].sample_dim))
-                    self.layers[i].gamma = parameters[f"gamma layer {i}"]
-                    self.layers[i].beta = parameters[f"beta layer {i}"]
-                    
-        return parameters, derivatives
+        return params, derivs
 
 
 class NeuralNetwork():
@@ -391,6 +247,12 @@ class NeuralNetwork():
 
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
+    
+    def init_buffers(self, batch_size, input_dim):
+        activations = [None] * (len(self.sequential) + 1)
+        activations[0] = np.empty((batch_size, input_dim))
+        for i, layer in enumerate(self.sequential):
+            activations[i+1] = np.empty((batch_size, layer.out_dim))
     
     def __select_optimizer(self):
         '''
@@ -705,7 +567,7 @@ class NeuralNetwork():
 
 if __name__ == "__main__":
 
-    npy.random.seed(0)
+    np.random.seed(0)
     
     df1 = pd.read_csv("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\Examples\\example data\\MNIST\\mnist_train1.csv", delimiter=",", header=None)
 
@@ -748,6 +610,18 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
+    seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2), Layer.Flatten(), Layer.Linear(507, 10, "softmax")])
+    
+    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=1e-3, verbose=True)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=256)#, validation=[val_X, val_y])
+    
+    #print(np.mean(nn.times), np.median(nn.times))
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
     seq = Sequential([Layer.Conv(1, 3, 5, "relu"), Layer.BatchNorm2D(3), Layer.Pool(2, 2, pool_mode="max"), 
                       Layer.Dropout(0.25), Layer.Conv(3, 6, 5, "relu"), Layer.BatchNorm2D(6), 
                       Layer.Pool(2, 2, pool_mode="max"), Layer.Dropout(0.25), Layer.Flatten(), 
@@ -769,18 +643,6 @@ if __name__ == "__main__":
     nn = NeuralNetwork(seq, optimizer="adam", loss="hinge", learning_rate=1e-5, verbose=20)
     
     nn.fit(train_X, train_y, epochs=2, batch_size=256)#, validation=[val_X, val_y])
-    
-# %%
-
-if __name__ == "__main__":
-    np.random.seed(0)
-    seq = Sequential([Layer.Conv(1, 3, 4, "linear", stride=2), Layer.Flatten(), Layer.Linear(507, 10, "softmax")])
-    
-    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=1e-3, verbose=True)
-    
-    nn.fit(train_X, train_y, epochs=5, batch_size=256)#, validation=[val_X, val_y])
-    
-    #print(np.mean(nn.times), np.median(nn.times))
     
 # %%
 
