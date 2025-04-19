@@ -146,10 +146,16 @@ class cross_entropy():
         mult2_buffer = self.buffers["mult2"]
         add_buffer = self.buffers["add"]
         
-        np.log(y_pred + self.epsilon, out=log1_buffer)
-        np.log(1 - y_pred + self.epsilon, out=log2_buffer)
+        np.add(y_pred, self.epsilon, out=log1_buffer)
+        np.log(log1_buffer, out=log1_buffer)
+        np.subtract(1.0, y_pred, out=log2_buffer)
+        
+        np.add(log2_buffer, self.epsilon, out=log2_buffer)
+        np.log(log2_buffer, out=log2_buffer)
+        
         np.multiply(y, log1_buffer, out=mult1_buffer)
-        np.multiply(1 - y, log2_buffer, out=mult2_buffer)
+        np.subtract(1.0, y, out=mult2_buffer)
+        np.multiply(mult2_buffer, log2_buffer, out=mult2_buffer)
         np.add(mult1_buffer, mult2_buffer, out=add_buffer)
         res = - np.sum(add_buffer) / y.shape[0]
         

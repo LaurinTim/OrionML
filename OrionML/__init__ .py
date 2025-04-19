@@ -400,10 +400,7 @@ class NeuralNetwork():
 
         '''
         acts = self.sequential.buffers["activations"]
-        #print(x[0][500:505])
-        acts[0] = np.copy(x)
-        #acts[0][0][500:505] = 1
-        #print(x[0][500:505])
+        np.copyto(acts[0], x)
         
         for i, layer in enumerate(self.sequential):
             layer.forward(acts[i], out_buffer=acts[i+1], training=True)
@@ -430,7 +427,7 @@ class NeuralNetwork():
         '''
         acts = self.sequential.buffers["activations"]
         grads_w, grads_b = self.sequential.buffers["grads"]
-        acts[-1] = dA
+        np.copyto(acts[-1], dA)
         
         for i in reversed(range(len(self.sequential))):
             curr_dA = acts[i+1]

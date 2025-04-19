@@ -292,20 +292,27 @@ class softmax():
         self.buffers = {}
         
     def init_buffers(self, batch_size, sample_shape):
+        self.buffers["max"] = np.empty((batch_size, 1))
         self.buffers["shifted_z"] = np.empty((batch_size, *sample_shape))
         self.buffers["exp_z"] = np.empty((batch_size, *sample_shape))
+        self.buffers["denom"] = np.empty((batch_size, 1))
         
         self.buffers["value"] = np.empty((batch_size, *sample_shape))
         self.buffers["mult"] = np.empty((batch_size, *sample_shape, *sample_shape))
         self.buffers["diagonal"] = np.empty((batch_size, *sample_shape, *sample_shape))
+        self.buffers["eye"] = np.eye(sample_shape[0], dtype=float)
     
     def value_buffered(self, z, out_buffer):
+        max_buffer = self.buffers["max"]
         shifted_z_buffer = self.buffers["shifted_z"]
         exp_z_buffer = self.buffers["exp_z"]
+        denom_buffer = self.buffers["denom"]
         
-        np.subtract(z, np.max(z, axis=1, keepdims=True), out=shifted_z_buffer)
+        np.maximum.reduce(z, axis=1, keepdims=True, out=max_buffer)
+        np.subtract(z, max_buffer, out=shifted_z_buffer)
         np.exp(shifted_z_buffer, out=exp_z_buffer)
-        np.divide(exp_z_buffer, (np.sum(exp_z_buffer, axis=1, keepdims=True)), out=out_buffer)
+        np.add.reduce(exp_z_buffer, axis=1, keepdims=True, out=denom_buffer)
+        np.divide(exp_z_buffer, denom_buffer, out=out_buffer)
         
         return
     
@@ -313,11 +320,13 @@ class softmax():
         value_buffer = self.buffers["value"]
         mult_buffer = self.buffers["mult"]
         diagonal_buffer = self.buffers["diagonal"]
+        I = self.buffers["eye"]
         
         self.value_buffered(z, out_buffer=value_buffer)
         np.multiply(-value_buffer.reshape(value_buffer.shape[0],-1,1), value_buffer.reshape(value_buffer.shape[0],1,-1), out=mult_buffer)
-        np.einsum("ij,jk->ijk", value_buffer, np.eye(value_buffer.shape[1]), optimize="optimal", out=diagonal_buffer)
+        np.einsum("ij,jk->ijk", value_buffer, I, optimize="optimal", out=diagonal_buffer)
         np.add(mult_buffer, diagonal_buffer, out=out_buffer)
+        
         return
     
     def value(self, z):

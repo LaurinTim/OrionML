@@ -48,7 +48,6 @@ class Linear():
         self.out_dim = None
         
         self.buffers = {}
-        self.input = None
                 
     def type(self):
         '''
@@ -185,10 +184,10 @@ class Linear():
                     Array after the weights and bias of the linear Layer are applied to the input data.
 
         '''
-        self.input = np.copy(A_prev)
+        np.copyto(self.buffers["A_prev"], A_prev)
         z_buffer = self.buffers["z"]
         
-        np.matmul(A_prev, self.w, out=z_buffer)
+        np.matmul(self.buffers["A_prev"], self.w, out=z_buffer)
         np.add(z_buffer, self.b, out=z_buffer)
         self.activation_function.value_buffered(z_buffer, out_buffer=out_buffer)
         
@@ -222,6 +221,7 @@ class Linear():
         z_buffer = self.buffers["z"]
         d_activation_buffer = self.buffers["d_activation"]
         dA_activation_buffer = self.buffers["dA_activation"]
+        A_prev_buffer = self.buffers["A_prev"]
         
         self.activation_function.derivative_buffered(z_buffer, out_buffer=d_activation_buffer)
                 
@@ -233,7 +233,7 @@ class Linear():
                         
         #curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         #curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
-        np.matmul(self.input.T, dA_activation_buffer, out=dw_buffer)
+        np.matmul(A_prev_buffer.T, dA_activation_buffer, out=dw_buffer)
         np.sum(dA_activation_buffer, axis=0, keepdims=True, out=db_buffer)
         np.matmul(dA_activation_buffer, self.w.T, out=dout_buffer)
         
