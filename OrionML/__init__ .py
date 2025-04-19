@@ -704,6 +704,20 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
+    #seq = Sequential([Layer.Linear(784, 512, activation="relu"), Layer.Linear(512, 256, activation="relu"), Layer.Linear(256, 128, activation="relu"), 
+    #                  Layer.Linear(128, 64, activation="relu"), Layer.Linear(64, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
+    
+    seq = Sequential([Layer.Linear(784, 128, activation="relu"), Layer.Linear(128, 64, activation="relu"), 
+                      Layer.Linear(64, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=5e-4, verbose=10)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=32, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    np.random.seed(0)
     #seq = Sequential([Layer.BatchNorm(784), Layer.Linear(784, 45, activation="relu"), Layer.Dropout(0.3), Layer.Linear(45, 35, activation="relu"), Layer.Linear(35, 25, activation="relu"), Layer.Linear(25, 10, activation="softmax")])
     seq = Sequential([Layer.Linear(784, 144, activation="relu"), Layer.Reshape((12, 12, 1)), Layer.Conv(1, 6, 5, activation="relu"), 
                       Layer.Pool(2, 2, pool_mode="max"), Layer.Flatten(), Layer.Linear(96, 10, activation="softmax")])
