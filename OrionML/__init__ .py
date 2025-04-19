@@ -157,7 +157,11 @@ class Sequential():
 
         Returns
         -------
-        
+        params : dict
+            Dictionary containing the parameters of all trainable layers.
+        derivs : dict
+            Dictionary containing arrays where the derivatives for all trainable parameters 
+            in the layers can be stored.
 
         '''
         
