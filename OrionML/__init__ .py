@@ -49,6 +49,8 @@ class Sequential():
         self.feature_num = trainable_layers_dimensions[0][0]
         self.output_dim = trainable_layers_dimensions[-1][1]
         
+        self.buffers = {}
+        
     def __str__(self):
         '''
 
@@ -83,7 +85,7 @@ class Sequential():
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.layers))
     
-    def __call__(self, x_in, training=False):
+    def __call__(self, x_in):
         '''
         Pass data through all the layers of the sequential.
 
@@ -91,8 +93,6 @@ class Sequential():
         ----------
         x_in : ndarray, shape: (number of samples, self.feature_num)
             Input data.
-        training : bool
-            If the sequential should be called for training. The default is True.
 
         Returns
         -------
@@ -104,7 +104,7 @@ class Sequential():
         
         for layer in self.layers:
             x_curr = x_next
-            x_next, _ = layer.value(x_curr, training=training)
+            x_next = layer.value(x_curr)
         
         return x_next
     
@@ -171,14 +171,6 @@ class Sequential():
         '''
         Initialize the parameters in the trainable Layers of the Sequential.
 
-        Returns
-        -------
-        params : dict
-            Dictionary containing the parameters of all trainable layers.
-        derivs : dict
-            Dictionary containing arrays where the derivatives for all trainable parameters 
-            in the layers can be stored.
-
         '''
         
         if self.initializer in ["glorot", "Xavier"]:
@@ -225,6 +217,44 @@ class Sequential():
             layer.out_dim = curr_shape
         
         return
+    
+    def init_buffers(self, batch_size, input_dim) -> None:
+        '''
+        Initialize the buffers for the value of the input for different layers and the 
+        gradients of the parameters.
+
+        Parameters
+        ----------
+        batch_size : int
+            Batch size used in training.
+
+        '''
+        activations = [None] * (self.num_layers + 1)
+        activations[0] = np.empty((batch_size, *input_dim))
+        
+        grad_a = [None] * (self.num_layers)
+        grad_b = [None] * (self.num_layers)
+        
+        for i, layer in enumerate(self.layers):
+            layer.init_buffers(batch_size)
+            
+            activations[i+1] = np.empty((batch_size, *layer.out_dim))
+            
+            if layer.type() in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
+                grad_a[i] = np.empty_like(layer.w)
+                grad_b[i] = np.empty_like(layer.b)
+                
+            elif layer.type() in ["OrionML.Layer.BatchNorm", "OrionML.Layer.BatchNorm2D"]:
+                grad_a[i] = np.empty_like(layer.gamma)
+                grad_b[i] = np.empty_like(layer.beta)
+                
+            else:
+                grad_a[i] = np.empty(0)
+                grad_b[i] = np.empty(0)
+            
+        self.buffers["activations"] = activations
+        self.buffers["grads"] = (grad_a, grad_b)
+        self.buffers["dLoss"] = np.empty((batch_size, *self.layers[-1].out_dim))
 
 
 class NeuralNetwork():
@@ -281,8 +311,6 @@ class NeuralNetwork():
         
         self.sequential.initialize_parameters()
         
-        self.buffers = {}
-        
         self.input_dim = None
                 
         self.J_h = []
@@ -310,38 +338,6 @@ class NeuralNetwork():
 
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
-    
-    def init_buffers(self, batch_size) -> None:
-        '''
-        Initialize the buffers for the value of the input for different layers and the 
-        gradients of the parameters.
-
-        Parameters
-        ----------
-        batch_size : int
-            Batch size used in training.
-
-        '''
-        activations = [None] * (len(self.sequential) + 1)
-        activations[0] = np.empty((batch_size, *self.input_dim))
-        
-        grad_a = []
-        grad_b = []
-        
-        for i, layer in enumerate(self.sequential):
-            activations[i+1] = np.empty((batch_size, *layer.out_dim))
-            
-            if layer.trainable:
-                if layer.type() in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
-                    grad_a.append(np.empty_like(layer.w))
-                    grad_b.append(np.empty_like(layer.b))
-                    
-                elif layer.type() in ["OrionML.Layer.BatchNorm", "OrionML.Layer.BatchNorm2D"]:
-                    grad_a.append(np.empty_like(layer.gamma))
-                    grad_b.append(np.empty_like(layer.beta))
-            
-        self.buffers["activations"] = activations
-        self.buffers["grads"] = (grad_a, grad_b)
     
     def __select_optimizer(self):
         '''
@@ -385,30 +381,6 @@ class NeuralNetwork():
         elif self.loss_name in ["huber"]: return Loss.huber()
         else:
             assert False, "Invalid input for loss, please choose on of the following: {mse, mae, mbe, cross_entropy, hinge, squared_hinge, L1loss, L2loss, huber}."
-                                                    
-    def forward_step(self, prev_A, layer_pos):
-        '''
-        Evaluate a forward step over one Layer.
-
-        Parameters
-        ----------
-        prev_A : ndarray, shape: (number of samples passed to the Neural Network, dimension 1 of the current Layer)
-            Input data put through all Layers before the current Layer.
-        layer_pos : int
-            Position of the layer for which the forward step should be performed.
-
-        Returns
-        -------
-        curr_A : ndarray, shape: (number of samples passed to the Neural Network, dimension 2 of the current Layer)
-            Input data put through all Layers before the next Layer.
-        cache : tuple
-            Tuple containing information required for backwards propagation. For the contents refer to the 
-            documentation of the Layers.
-
-        '''
-        curr_A, cache = self.sequential[layer_pos].forward(prev_A, training=True)
-                    
-        return curr_A, cache
     
     def forward(self, x):
         '''
@@ -427,17 +399,18 @@ class NeuralNetwork():
             List containing the caches from the forward propagation steps.
 
         '''
-        caches = []
-        A = x
+        acts = self.sequential.buffers["activations"]
+        #print(x[0][500:505])
+        acts[0] = np.copy(x)
+        #acts[0][0][500:505] = 1
+        #print(x[0][500:505])
         
-        for i in range(self.sequential.num_layers):
-            prev_A = A
-            A, cache = self.forward_step(prev_A, i)
-            caches.append(cache)
+        for i, layer in enumerate(self.sequential):
+            layer.forward(acts[i], out_buffer=acts[i+1], training=True)
                 
-        return A, caches
+        return acts[-1]
     
-    def backward(self, dA, caches):
+    def backward(self, dA):
         '''
         Backward propagation through the Layers of the Neural Network.
 
@@ -455,27 +428,26 @@ class NeuralNetwork():
             List containing dA after each trainable layer and dw and db for each trainable layer.
 
         '''
-        grads = []
+        acts = self.sequential.buffers["activations"]
+        grads_w, grads_b = self.sequential.buffers["grads"]
+        acts[-1] = dA
         
-        for i in reversed(range(self.sequential.num_layers)):            
-            curr_dA = dA
+        for i in reversed(range(len(self.sequential))):
+            curr_dA = acts[i+1]
             curr_layer_type = self.sequential[i].type()
-            curr_cache = caches[i]
             
             if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
-                dA, curr_dw, curr_db = self.sequential[i].backward(curr_dA, curr_cache, training=True)
-                grads = [[dA, curr_dw, curr_db]] + grads
+                self.sequential[i].backward(curr_dA, dw_buffer=grads_w[i], db_buffer=grads_b[i], dout_buffer=acts[i], training=True)
                 
             elif curr_layer_type in ["OrionML.Layer.Dropout", "OrionML.Layer.Reshape", "OrionML.Layer.Flatten", "OrionML.Layer.Pool"]:
-                dA = self.sequential[i].backward(curr_dA, curr_cache, training=True)
+                self.sequential[i].backward(curr_dA, dout_buffer=acts[i], training=True)
                 
             elif curr_layer_type in ["OrionML.Layer.BatchNorm", "OrionML.Layer.BatchNorm2D"]:
-                dA, curr_dgamma, curr_dbeta = self.sequential[i].backward(curr_dA, curr_cache, training=True)
-                grads = [[dA, curr_dgamma, curr_dbeta]] + grads
+                self.sequential[i].backward(curr_dA, dgamma_buffer=grads_w[i], dbeta_buffer=grads_b[i], dout_buffer=acts[i], training=True)
                                         
-        return [[val[0] for val in grads], [val[1] for val in grads], [val[2] for val in grads]]
+        return
     
-    def update_parameters(self, grads) -> None:
+    def update_parameters(self) -> None:
         '''
         Update the weights and bias of the trainable Layers.
 
@@ -486,11 +458,11 @@ class NeuralNetwork():
 
 
         '''
-        self.optimizer(grads)
+        self.optimizer()
                 
         return
     
-    def gradient_descent(self, grads) -> None:
+    def gradient_descent(self) -> None:
         '''
         Gradient descent optimizer.
 
@@ -499,25 +471,18 @@ class NeuralNetwork():
         grads : list, shape: (number of trainable Layers, 3)
             List containing dA after each trainable layer and dw and db for each trainable layer.
 
-        '''
-        layer_pos = 0
-        train_pos = 0
-        
-        for layer in self.sequential:
+        '''        
+        for layer, dw, db in zip(self.sequential, *self.sequential.buffers["grads"]):
             if layer.trainable:
                 curr_layer_type = layer.type()
                 if curr_layer_type in ["OrionML.Layer.Linear", "OrionML.Layer.Conv"]:
-                    layer.w -= self.learning_rate * grads[1][train_pos]
-                    layer.b -= self.learning_rate * grads[2][train_pos]
+                    layer.w -= self.learning_rate * dw
+                    layer.b -= self.learning_rate * db
                                     
                 elif curr_layer_type=="OrionML.Layer.BatchNorm":
-                    layer.gamma -= self.learning_rate * grads[1][train_pos]
-                    layer.beta -= self.learning_rate * grads[2][train_pos]
+                    layer.gamma -= self.learning_rate * dw
+                    layer.beta -= self.learning_rate * db
                     
-                train_pos += 1
-            
-            layer_pos += 1
-            
         return
     
     def Adam(self, grads) -> None:
@@ -581,10 +546,17 @@ class NeuralNetwork():
             during training, information from the validation data is also displayed. The default 
             is None.
 
-        '''        
+        '''
         num_samples = x.shape[0]
         
+        if batch_size==None:
+            batch_size = len(x)
+        
         self.input_dim = x.shape[1:]
+        self.sequential.initialize_layer_dimensions(self.input_dim)
+        
+        self.sequential.init_buffers(batch_size, self.input_dim)
+        self.loss_function.init_buffers(batch_size, self.sequential.layers[-1].out_dim)
                 
         self.tfor = []
         self.tbak = []
@@ -603,23 +575,28 @@ class NeuralNetwork():
             curr_tfor = 0
             curr_tbak = 0
             
-            for curr_x, curr_y in zip(x_batches, y_batches):
+            for curr_x, curr_y in zip(x_batches, y_batches):                
                 stfor = time()
-                A, caches = self.forward(curr_x)
+                A = self.forward(curr_x)
                 curr_tfor += time()-stfor
+                                                
+                AL = self.loss_function.value_buffered(curr_y, A)
                                 
-                AL = self.loss_function.value(curr_y, A)
-                dAL = self.loss_function.derivative(curr_y, A)
+                dAL = self.sequential.buffers["dLoss"]
+                self.loss_function.derivative_buffered(curr_y, A, out_buffer=dAL)
                 
+                #print(curr_x[0][500:505])
+                                
                 stbak = time()
-                grads = self.backward(dAL, caches)
+                self.backward(dAL)
                 curr_tbak += time()-stbak
-                                
-                self.update_parameters(grads)
                 
-                tst = np.array([np.array([np.isnan(val).any() for val in bal]).any() for bal in grads]).any()
-                assert not tst, "hello nan"
-                                                                
+                #print(curr_x[0][500:505])
+                
+                #if i==1: print(self.sequential.buffers["grads"][0][1])
+                                
+                self.update_parameters()
+                                                                                
             self.tfor.append(curr_tfor)
             self.tbak.append(curr_tbak)
                             
@@ -675,19 +652,25 @@ if __name__ == "__main__":
     val_y = np.zeros((len(val_y_col), 10))
     for i in range(len(val_y)):
         val_y[i][val_y_col[i]] = 1
-        
+
 # %%
 
 if __name__ == "__main__":
     scaler = utils.StandardScaler()
     train_X = scaler.fit_transform(train_X)
     val_X = scaler.fit_transform(val_X)
-
+    
 # %%
 
 if __name__ == "__main__":
-    train_X = train_X.reshape(train_X.shape[0], 28, 28, 1)
-    val_X = val_X.reshape(val_X.shape[0], 28, 28, 1)
+    np.random.seed(0)
+    
+    seq = Sequential([Layer.Linear(784, 512, activation="relu"), Layer.Linear(512, 256, activation="relu"), Layer.Linear(256, 128, activation="relu"), 
+                      Layer.Linear(128, 64, activation="relu"), Layer.Linear(64, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
+
+    nn = NeuralNetwork(seq, optimizer="gd", loss="cross_entropy", learning_rate=5e-2, verbose=10)
+    
+    nn.fit(train_X, train_y, epochs=10, batch_size=32, validation=[val_X, val_y])
     
 # %%
 
@@ -699,9 +682,15 @@ if __name__ == "__main__":
     seq = Sequential([Layer.Linear(784, 128, activation="relu"), Layer.Linear(128, 64, activation="relu"), 
                       Layer.Linear(64, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="adam", loss="cross_entropy", learning_rate=5e-4, verbose=10)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="cross_entropy", learning_rate=1e-3, verbose=10)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=32, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=5, batch_size=32, validation=[val_X, val_y])
+    
+# %%
+
+if __name__ == "__main__":
+    train_X = train_X.reshape(train_X.shape[0], 28, 28, 1)
+    val_X = val_X.reshape(val_X.shape[0], 28, 28, 1)
     
 # %%
 

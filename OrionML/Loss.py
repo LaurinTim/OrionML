@@ -124,7 +124,51 @@ class mbe():
 
 class cross_entropy():
     def __init__(self):
+        self.epsilon = 1e-8
+        self.buffers = {}
+        
+    def init_buffers(self, batch_size, sample_shape):
+        self.buffers["log1"] = np.empty((batch_size, *sample_shape))
+        self.buffers["log2"] = np.empty((batch_size, *sample_shape))
+        self.buffers["mult1"] = np.empty((batch_size, *sample_shape))
+        self.buffers["mult2"] = np.empty((batch_size, *sample_shape))
+        self.buffers["add"] = np.empty((batch_size, *sample_shape))
+        
+        self.buffers["dsub1"] = np.empty((batch_size, *sample_shape))
+        self.buffers["dsub2"] = np.empty((batch_size, *sample_shape))
+        self.buffers["dmult"] = np.empty((batch_size, *sample_shape))
+        
+        
+    def value_buffered(self, y, y_pred):
+        log1_buffer = self.buffers["log1"]
+        log2_buffer = self.buffers["log2"]
+        mult1_buffer = self.buffers["mult1"]
+        mult2_buffer = self.buffers["mult2"]
+        add_buffer = self.buffers["add"]
+        
+        np.log(y_pred + self.epsilon, out=log1_buffer)
+        np.log(1 - y_pred + self.epsilon, out=log2_buffer)
+        np.multiply(y, log1_buffer, out=mult1_buffer)
+        np.multiply(1 - y, log2_buffer, out=mult2_buffer)
+        np.add(mult1_buffer, mult2_buffer, out=add_buffer)
+        res = - np.sum(add_buffer) / y.shape[0]
+        
+        return res
+        
+    def derivative_buffered(self, y, y_pred, out_buffer):
+        dsub1_buffer = self.buffers["dsub1"]
+        dsub2_buffer = self.buffers["dsub2"]
+        dmult_buffer = self.buffers["dmult"]
+        
+        np.subtract(y_pred, y, out=dsub1_buffer)
+        np.subtract(1, y_pred, out=dsub2_buffer)
+        np.multiply(y_pred, dsub2_buffer, out=dmult_buffer)
+        dmult_buffer *= y.shape[0]
+        dmult_buffer += self.epsilon
+        np.divide(dsub1_buffer, dmult_buffer, out=out_buffer)
+        
         return
+        
     
     def value(self, y, y_pred):
         '''
@@ -144,7 +188,7 @@ class cross_entropy():
         '''
         #print(np.min(y * np.log(y_pred)), np.max(y * np.log(y_pred)))
         #print(np.min((1 - y) * np.log(1 - y_pred)), np.max((1 - y) * np.log(1 - y_pred)))
-        r = - np.sum(y * np.log(y_pred + 1e-8) + (1 - y) * np.log(1-y_pred + 1e-8)) / y.shape[0]
+        r = - np.sum(y * np.log(y_pred + 1e-8) + (1 - y) * np.log(1-y_pred + self.epsilon)) / y.shape[0]
         return r
     
     def derivative(self, y, y_pred):
@@ -159,12 +203,31 @@ class cross_entropy():
     
         Returns
         -------
-        float
+        ndarray : shape: (number of samples, number of outputs)
             Derivative of the Cross Entropy Loss of the correct and predicted labels.
     
         '''
-        return (y_pred-y) / (y.shape[0]*y_pred*(1-y_pred) + 1e-8)
+        return (y_pred-y) / (y.shape[0]*y_pred*(1-y_pred) + self.epsilon)
     
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[0,1,0], [1,0,0]])
+    b = np.array([[0.2,0.7,0.1], [0.6,0.3,0.1]])
+    
+    l = cross_entropy()
+    
+    l.init_buffers(2, (3,))
+    
+    db = np.empty((2, 3))
+    
+    vb = l.value_buffered(a, b)
+    l.derivative_buffered(a, b, out_buffer=db)
+    
+    v = l.value(a, b)
+    d = l.derivative(a, b)
+
+# %%
 
 class hinge():
     def __init__(self):

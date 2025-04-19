@@ -46,6 +46,9 @@ class Linear():
         
         self.in_dim = None
         self.out_dim = None
+        
+        self.buffers = {}
+        self.input = None
                 
     def type(self):
         '''
@@ -90,6 +93,21 @@ class Linear():
         else:
             assert False, "ERROR: Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh, softmax}."
             
+    def init_buffers(self, batch_size):
+        self.buffers["z"] = np.empty((batch_size, *self.out_dim))
+        self.buffers["A_prev"] = np.empty((batch_size, *self.in_dim))
+        
+        if self.activation == "softmax":
+            self.buffers["d_activation"] = np.empty((batch_size, *self.out_dim, *self.out_dim))
+            
+        else:
+            self.buffers["d_activation"] = np.empty((batch_size, *self.out_dim))
+            
+        self.buffers["dA_activation"] = np.empty((batch_size, *self.out_dim))
+        
+        self.activation_function.init_buffers(batch_size, self.out_dim)
+        
+    
     def update_parameters(self, w_new, b_new=None):
         '''
         Updade the weights and bias of the current Layer.
@@ -136,15 +154,15 @@ class Linear():
         z = np.matmul(x, self.w) + self.b
         out = self.activation_function.value(z)
                     
-        return out, z
+        return out
     
-    def forward(self, prev_A, training=False):
+    def forward(self, A_prev, out_buffer, training=False):
         '''
         Forward step of a linear Layer in a Neural Network.
 
         Parameters
         ----------
-        prev_A : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
+        A_prev : ndarray, shape: (number of samples passed to the Neural Network, self.dim1)
             Data before the current linear Layer is applied.
         training : bool/None, optional
             Whether the Layer is currently in training or not. This has no effect for linear 
@@ -166,13 +184,17 @@ class Linear():
                 Z : ndarray, shape: (number of samples, self.dim2)
                     Array after the weights and bias of the linear Layer are applied to the input data.
 
-        '''        
-        curr_A, Z = self.value(prev_A, training=training)
-        cache = (prev_A, self.w, self.b, Z)
+        '''
+        self.input = np.copy(A_prev)
+        z_buffer = self.buffers["z"]
         
-        return curr_A, cache
+        np.matmul(A_prev, self.w, out=z_buffer)
+        np.add(z_buffer, self.b, out=z_buffer)
+        self.activation_function.value_buffered(z_buffer, out_buffer=out_buffer)
+        
+        return
     
-    def backward(self, dA, cache, training=False):
+    def backward(self, dA, dw_buffer, db_buffer, dout_buffer, training=False):
         '''
         Backward step of a linear Layer in a Neural Network.
 
@@ -197,23 +219,25 @@ class Linear():
             Derivative of the bias of the current Layer given dA and the values in the cache.
 
         '''
-        prev_A, curr_w, curr_b, curr_z = cache
+        z_buffer = self.buffers["z"]
+        d_activation_buffer = self.buffers["d_activation"]
+        dA_activation_buffer = self.buffers["dA_activation"]
         
-        d_activation = self.activation_function.derivative(curr_z)
-        
+        self.activation_function.derivative_buffered(z_buffer, out_buffer=d_activation_buffer)
+                
         if self.activation != "softmax":
-            curr_dA = dA * d_activation
+            np.multiply(dA, d_activation_buffer, out=dA_activation_buffer)
             
         else:
-            curr_dA = np.einsum('ijk,ik->ij', d_activation, dA, optimize="optimal")
+            np.einsum('ijk,ik->ij', d_activation_buffer, dA, optimize="optimal", out=dA_activation_buffer)
                         
         #curr_dw = 1/prev_A.shape[0] * np.matmul(prev_A.T, curr_dA)
         #curr_db = 1/prev_A.shape[0] * np.sum(curr_dA, axis=0, keepdims=True)
-        curr_dw = np.matmul(prev_A.T, curr_dA)
-        curr_db = np.sum(curr_dA, axis=0, keepdims=True)
-        prev_dA = np.matmul(curr_dA, curr_w.T)
+        np.matmul(self.input.T, dA_activation_buffer, out=dw_buffer)
+        np.sum(dA_activation_buffer, axis=0, keepdims=True, out=db_buffer)
+        np.matmul(dA_activation_buffer, self.w.T, out=dout_buffer)
         
-        return prev_dA, curr_dw, curr_db
+        return
     
        
 class Dropout():

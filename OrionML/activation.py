@@ -40,8 +40,17 @@ class linear():
 
 class relu():
     def __init__(self):
+        self.buffers = {}
+    
+    def init_buffers(self, batch_size, sample_shape):
         return
     
+    def value_buffered(self, z, out_buffer):
+        return np.clip(z, a_min=0, a_max=np.inf, out=out_buffer)
+    
+    def derivative_buffered(self, z, out_buffer):
+        return np.greater_equal(z, 0, out=out_buffer)
+        
     def value(self, z):
         '''
     
@@ -68,7 +77,7 @@ class relu():
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
+        ndarray, shape: (input size, output size)
             Derivative at the values with respect to a ReLU activation function.
     
         '''
@@ -280,6 +289,35 @@ class tanh():
 
 class softmax():
     def __init__(self):
+        self.buffers = {}
+        
+    def init_buffers(self, batch_size, sample_shape):
+        self.buffers["shifted_z"] = np.empty((batch_size, *sample_shape))
+        self.buffers["exp_z"] = np.empty((batch_size, *sample_shape))
+        
+        self.buffers["value"] = np.empty((batch_size, *sample_shape))
+        self.buffers["mult"] = np.empty((batch_size, *sample_shape, *sample_shape))
+        self.buffers["diagonal"] = np.empty((batch_size, *sample_shape, *sample_shape))
+    
+    def value_buffered(self, z, out_buffer):
+        shifted_z_buffer = self.buffers["shifted_z"]
+        exp_z_buffer = self.buffers["exp_z"]
+        
+        np.subtract(z, np.max(z, axis=1, keepdims=True), out=shifted_z_buffer)
+        np.exp(shifted_z_buffer, out=exp_z_buffer)
+        np.divide(exp_z_buffer, (np.sum(exp_z_buffer, axis=1, keepdims=True)), out=out_buffer)
+        
+        return
+    
+    def derivative_buffered(self, z, out_buffer):
+        value_buffer = self.buffers["value"]
+        mult_buffer = self.buffers["mult"]
+        diagonal_buffer = self.buffers["diagonal"]
+        
+        self.value_buffered(z, out_buffer=value_buffer)
+        np.multiply(-value_buffer.reshape(value_buffer.shape[0],-1,1), value_buffer.reshape(value_buffer.shape[0],1,-1), out=mult_buffer)
+        np.einsum("ij,jk->ijk", value_buffer, np.eye(value_buffer.shape[1]), optimize="optimal", out=diagonal_buffer)
+        np.add(mult_buffer, diagonal_buffer, out=out_buffer)
         return
     
     def value(self, z):
@@ -318,6 +356,24 @@ class softmax():
         res = -sz.reshape(sz.shape[0],-1,1) * sz.reshape(sz.shape[0],1,sz.shape[1])
         res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]), optimize="optimal")
         return res
+    
+# %%
+
+if __name__ == "__main__":
+    a = np.array([[0,1,0], [1,0,0]])
+    b = np.array([[0.2,0.7,0.1], [0.6,0.3,0.1]])
+    
+    f = softmax()
+    f.init_buffers(2, (3,))
+    
+    vb = np.empty((2, 3))
+    db = np.empty((2, 3, 3))
+    
+    v = f.value(b)
+    d = f.derivative(b)
+    
+    f.value_buffered(b, vb)
+    f.derivative_buffered(b, db)
     
 # %%
 
