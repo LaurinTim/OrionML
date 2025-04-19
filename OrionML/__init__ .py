@@ -27,6 +27,11 @@ class Sequential():
         ----------
         layers : list
             List containing the Layers for the Neural Network.
+        initializer : str
+            How the parameters of the trainable layers should be initialized. If it is "glorot" 
+            or "Xavier", glorot/Xavier initialization is used. If it is "he", he initialization 
+            is used. For any other value, the parameters are initialized to small uniformally 
+            distributed values. The default is "uniform".
 
         '''
         self.layers = layers
@@ -56,6 +61,15 @@ class Sequential():
         return "Sequential with {self.num_layers} layers:\n" + "\n".join(val.description() for val in self.layers)
     
     def __len__(self):
+        '''
+        If the length of a Sequential is calles, return the number of layers in the sequential.
+
+        Returns
+        -------
+        int
+            Number of layers in the Sequential.
+
+        '''
         return self.num_layers
     
     def __repr__(self):
@@ -77,6 +91,8 @@ class Sequential():
         ----------
         x_in : ndarray, shape: (number of samples, self.feature_num)
             Input data.
+        training : bool
+            If the sequential should be called for training. The default is True.
 
         Returns
         -------
@@ -226,7 +242,7 @@ class NeuralNetwork():
             The default is "mse".
         optimizer : str, optional
             What optimizer to use. Has to be one of the following:
-                {gradient_descent, adam}. 
+                {gradient_descent, adam}.
             The default is "gradient_descent".
         learning_rate : float, optional
             Learning rate of the Neural Network. The default is 1e-2.
@@ -268,9 +284,7 @@ class NeuralNetwork():
         self.buffers = {}
         
         self.input_dim = None
-        
-        self.caches = []
-        
+                
         self.J_h = []
         self.epoch = 0
         self.times = []
@@ -297,7 +311,17 @@ class NeuralNetwork():
         '''
         return "NeuralNetwork: {}".format("-".join(str(l) for l in self.sequential))
     
-    def init_buffers(self, batch_size):
+    def init_buffers(self, batch_size) -> None:
+        '''
+        Initialize the buffers for the value of the input for different layers and the 
+        gradients of the parameters.
+
+        Parameters
+        ----------
+        batch_size : int
+            Batch size used in training.
+
+        '''
         activations = [None] * (len(self.sequential) + 1)
         activations[0] = np.empty((batch_size, *self.input_dim))
         
@@ -421,6 +445,9 @@ class NeuralNetwork():
         ----------
         dA : ndarray, shape: (number of samples passed to the Neural Network, output dimension of the Neural Network)
             Derivative of the loss function at the values given by the forward propagation.
+        caches : list
+            List containing the same number of tuples as layers in the model. Each tuple contains information from the 
+            forward pass of the layer used in backward propagation.
 
         Returns
         -------
