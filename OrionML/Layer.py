@@ -455,6 +455,7 @@ class BatchNorm():
         self.buffers["dmult5"] = np.empty((batch_size, *self.in_dim))
         self.buffers["dsum2"] = np.empty((1, *self.in_dim))
         self.buffers["dmult6"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dsub4"] = np.empty((batch_size, *self.in_dim))
         
         
     def value(self, x, training=False):
@@ -584,6 +585,7 @@ class BatchNorm():
         dmult5_buffer = self.buffers["dmult5"]
         dsum2_buffer = self.buffers["dsum2"]
         dmult6_buffer = self.buffers["dmult6"]
+        dsub4_buffer = self.buffers["dsub4"]
         
         np.multiply(dA, A_normalized_buffer, out=dmult1_buffer)
         np.add.reduce(dmult1_buffer, axis=0, keepdims=True, out=dgamma_buffer)
@@ -595,6 +597,7 @@ class BatchNorm():
         np.sqrt(dadd1_buffer, out=ddenom_buffer)
         np.divide(1, ddenom_buffer, out=t_buffer)
         np.divide(t_buffer, m, out=ddiv1_buffer)
+                
         np.multiply(self.gamma, ddiv1_buffer, out=dmult2_buffer)
         np.multiply(m, dA, out=dmult3_buffer)
         np.add.reduce(dA, axis=0, keepdims=True, out=dsum1_buffer)
@@ -606,7 +609,9 @@ class BatchNorm():
         np.multiply(dA, dsub3_buffer, out=dmult5_buffer)
         np.add.reduce(dmult5_buffer, axis=0, keepdims=True, out=dsum2_buffer)
         np.multiply(dmult4_buffer, dsum2_buffer, out=dmult6_buffer)
-        np.multiply(dmult2_buffer, dmult6_buffer, out=dout_buffer)
+        np.subtract(dsub1_buffer, dmult6_buffer, out=dsub4_buffer)
+                
+        np.multiply(dmult2_buffer, dsub4_buffer, out=dout_buffer)
         
         #prev_A, x_normalized, batch_mean, batch_variance = cache
         
