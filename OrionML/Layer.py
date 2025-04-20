@@ -680,6 +680,38 @@ class BatchNorm2D():
 
         '''
         return f"OrionML.Layer.BatchNorm2D (input channels: {self.channels})"
+    
+    def init_buffers(self, batch_size):
+        self.buffers["A_prev"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["A_prev_cols"] = np.empty((batch_size * self.in_dim[0] * self.in_dim[1], self.in_dim[2]))
+        self.buffers["mean"] = np.empty((1, *self.out_dim))
+        self.buffers["variance"] = np.empty((1, *self.out_dim))
+        self.buffers["A_shifted"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["add1"] = np.empty((1, *self.in_dim))
+        self.buffers["denom"] = np.empty((1, *self.in_dim))
+        self.buffers["A_normalized"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["mult1"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["mult2"] = np.empty((1, *self.in_dim))
+        self.buffers["mult3"] = np.empty((1, *self.in_dim))
+        
+        self.buffers["dA_prev_cols"] = np.empty((batch_size * self.in_dim[0] * self.in_dim[1], self.in_dim[2]))
+        self.buffers["dmult1"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dadd1"] = np.empty((1, *self.in_dim))
+        self.buffers["ddenom"] = np.empty((1, *self.in_dim))
+        self.buffers["t"] = np.empty((1, *self.in_dim))
+        self.buffers["ddiv1"] = np.empty((1, *self.in_dim))
+        self.buffers["dmult2"] = np.empty((1, *self.in_dim))
+        self.buffers["dmult3"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dsum1"] = np.empty((1, *self.in_dim))
+        self.buffers["dsub1"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["t_squared"] = np.empty((1, *self.in_dim))
+        self.buffers["dsub2"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dmult4"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dsub3"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dmult5"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dsum2"] = np.empty((1, *self.in_dim))
+        self.buffers["dmult6"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["dsub4"] = np.empty((batch_size, *self.in_dim))
         
     def value(self, x, training=False):
         '''
@@ -698,33 +730,18 @@ class BatchNorm2D():
             Output of the 2D batch normalization layer.
 
         '''
-        #In Batch normalization for convolutional layers, the normalization should be performed over each channel
-        
-        if training==True:
-            #Get array with shape (x.shape[0]*x.shape[1]*x.shape[2], x.shape[3]) where the ith column corresponds to all
-            #elements in x[:,:,:,i], so all elements in the ith channel. The normalization is then done the same way as 
-            #for linear layers using this new array as input.
-            x_channels = x.copy().reshape(-1, x.shape[3])
-            mean = np.mean(x_channels, axis=0, keepdims=True)
-            variance = np.var(x_channels, axis=0, keepdims=True)
-            x_normalized = (x-mean)/np.sqrt(variance + self.epsilon)
-            out = self.gamma*x_normalized + self.beta
-                    
-            return out, x_normalized, mean, variance
-        
-        elif training==False:
-            x_normalized = (x-self.running_mean)/np.sqrt(self.running_variance + self.epsilon)
-            out = self.gamma*x_normalized + self.beta
+        x_normalized = (x-self.running_mean)/np.sqrt(self.running_variance + self.epsilon)
+        out = self.gamma*x_normalized + self.beta
             
-            return out, ()
+        return out
     
-    def forward(self, prev_A, training=False):
+    def forward(self, A_prev, out_buffer, training=False):
         '''
         Forward step of a 2D Batch normalization layer in a Neural Network.
 
         Parameters
         ----------
-        prev_A : ndarray, shape: (number of samples, input height, input width, input channels)
+        A_prev : ndarray, shape: (number of samples, input height, input width, input channels)
             Data before the 2D batch normalization layer is applied.
         training : bool, optional
             Whether the layer is currently in training or not. The default is False.
@@ -745,25 +762,49 @@ class BatchNorm2D():
                     Variance of the elements in each channel of prev_A.
                 
         '''
-        if training==True:
-            curr_A, x_normalized, batch_mean, batch_variance = self.value(prev_A, training=training)
-            self.running_mean = self.momentum*self.running_mean + (1-self.momentum)*batch_mean
-            self.running_variance = self.momentum*self.running_variance + (1-self.momentum)*batch_variance
-            cache = (prev_A, x_normalized, batch_mean, batch_variance)
-            
-        elif training==False:
-            curr_A = self.value(prev_A, training=training)
-            cache = (prev_A)
+        #In Batch normalization for convolutional layers, the normalization should be performed over each channel
+        np.copyto(self.buffers["A_prev"], A_prev)
+        A_prev_buffer = self.buffers["A_prev"]
+        A_prev_cols_buffer = self.buffers["A_prev_cols"]
         
-        return curr_A, cache
+        if training==True:
+            mean_buffer = self.buffers["mean"]
+            variance_buffer = self.buffers["variance"]
+            A_shifted_buffer = self.buffers["A_shifted"]
+            add1_buffer = self.buffers["add1"]
+            denom_buffer = self.buffers["denom"]
+            A_normalized_buffer = self.buffers["A_normalized"]
+            mult1_buffer = self.buffers["mult1"]
+            mult2_buffer = self.buffers["mult2"]
+            mult3_buffer = self.buffers["mult3"]
+            
+            A_prev_cols_buffer = A_prev_buffer.copy().reshape((-1, A_prev_buffer.shape[3]))
+            
+            np.mean(A_prev_cols_buffer, axis=0, keepdims=True, out=mean_buffer)
+            np.var(A_prev_cols_buffer, axis=0, keepdims=True, out=variance_buffer)
+            np.subtract(A_prev_cols_buffer, mean_buffer, out=A_shifted_buffer)
+            np.add(variance_buffer, self.epsilon, out=add1_buffer)
+            np.sqrt(add1_buffer, out=denom_buffer)
+            np.divide(A_shifted_buffer, denom_buffer, out=A_normalized_buffer)
+            
+            np.multiply(self.gamma, A_normalized_buffer, out=mult1_buffer)
+            np.add(mult1_buffer, self.beta, out=out_buffer)
+            
+            np.multiply(self.momentum, self.running_mean, out=mult2_buffer)
+            np.add(mult2_buffer, (1-self.momentum) * mean_buffer, out=self.running_mean)
+            
+            np.multiply(self.momentum, self.running_variance, out=mult3_buffer)
+            np.add(mult3_buffer, (1-self.momentum) * variance_buffer, out=self.running_variance)
+        
+        return
     
-    def backward(self, dA, cache, training=False):
+    def backward(self, dA, dgamma_buffer, dbeta_buffer, dout_buffer, training=False):
         '''
         Backward step of a Batch normalization Layer in a Neural Network.
 
         Parameters
         ----------
-        dA : ndarray, shape: (number of samples, input height, input width, input channels)
+        dA : ndarray, shape: (number of samples, number of features)
             Derivative of all Layers in the Neural Network starting after the current Layer.
         cache : tuple
             cache containing information from the forward propagation of the current dropout Layer. 
@@ -773,29 +814,77 @@ class BatchNorm2D():
 
         Returns
         -------
-        prev_dA : ndarray, shape: (number of samples, input height, input width, input channels)
+        prev_dA : ndarray, shape: (number of samples, number of features)
             Derivative of all Layers in the Neural Network starting from the current Layer.
-        dgamma : ndarray, shape: (1, input channels)
+        dgamma : ndarray, shape: (1, number of features)
             Gradient of gamma.
-        dbeta : ndarray, shape: (1, input channels)
+        dbeta : ndarray, shape: (1, number of features)
             Gradient of beta.
 
         '''
         assert training, "Training should be True for backward propagation."
         
-        prev_A, x_normalized, batch_mean, batch_variance = cache
+        dA_prev_cols_buffer = self.buffers("dA_prev_cols")
+        A_normalized_buffer = self.buffers["A_normalized"]
+        mean_buffer = self.buffers["mean"]
+        variance_buffer = self.buffers["variance"]
+        A_prev_cols_buffer = self.buffers["A_prev_cols"]
+        dmult1_buffer = self.buffers["dmult1"]
+        dadd1_buffer = self.buffers["dadd1"]
+        ddenom_buffer = self.buffers["ddenom"]
+        t_buffer = self.buffers["t"]
+        ddiv1_buffer = self.buffers["ddiv1"]
+        dmult2_buffer = self.buffers["dmult2"]
+        dmult3_buffer = self.buffers["dmult3"]
+        dsum1_buffer = self.buffers["dsum1"]
+        dsub1_buffer = self.buffers["dsub1"]
+        t_squared_buffer = self.buffers["t_squared"]
+        dsub2_buffer = self.buffers["dsub2"]
+        dmult4_buffer = self.buffers["dmult4"]
+        dsub3_buffer = self.buffers["dsub3"]
+        dmult5_buffer = self.buffers["dmult5"]
+        dsum2_buffer = self.buffers["dsum2"]
+        dmult6_buffer = self.buffers["dmult6"]
+        dsub4_buffer = self.buffers["dsub4"]
         
-        dA_channels = dA.copy().reshape(-1, dA.shape[3])
-        x_normalized_channels = x_normalized.copy().reshape(-1, x_normalized.shape[3])
+        dA_prev_cols_buffer = dA.copy().reshape((-1, dA.shape[3]))
         
-        dgamma = np.sum(dA_channels*x_normalized_channels, axis=0, keepdims=True)
-        dbeta = np.sum(dA_channels, axis=0, keepdims=True)
+        np.multiply(dA_prev_cols_buffer, A_normalized_buffer, out=dmult1_buffer)
+        np.add.reduce(dmult1_buffer, axis=0, keepdims=True, out=dgamma_buffer)
+        np.add.reduce(dA_prev_cols_buffer, axis=0, keepdims=True, out=dbeta_buffer)
         
-        m = dA_channels.shape[0]
-        t = 1/np.sqrt(batch_variance + self.epsilon)
-        curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA_channels, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA_channels * (prev_A - batch_mean).reshape(-1, dA.shape[3]), axis=0))
+        m = dA_prev_cols_buffer.shape[0]
         
-        return curr_dA, dgamma, dbeta
+        np.add(variance_buffer, self.epsilon, out=dadd1_buffer)
+        np.sqrt(dadd1_buffer, out=ddenom_buffer)
+        np.divide(1, ddenom_buffer, out=t_buffer)
+        np.divide(t_buffer, m, out=ddiv1_buffer)
+                
+        np.multiply(self.gamma, ddiv1_buffer, out=dmult2_buffer)
+        np.multiply(m, dA_prev_cols_buffer, out=dmult3_buffer)
+        np.add.reduce(dA_prev_cols_buffer, axis=0, keepdims=True, out=dsum1_buffer)
+        np.subtract(dmult3_buffer, dsum1_buffer, out=dsub1_buffer)
+        np.square(t_buffer, out=t_squared_buffer)
+        np.subtract(A_prev_cols_buffer, mean_buffer, out=dsub2_buffer)
+        np.multiply(t_squared_buffer, dsub2_buffer, out=dmult4_buffer)
+        np.subtract(A_prev_cols_buffer, mean_buffer, out=dsub3_buffer)
+        np.multiply(dA_prev_cols_buffer, dsub3_buffer, out=dmult5_buffer)
+        np.add.reduce(dmult5_buffer, axis=0, keepdims=True, out=dsum2_buffer)
+        np.multiply(dmult4_buffer, dsum2_buffer, out=dmult6_buffer)
+        np.subtract(dsub1_buffer, dmult6_buffer, out=dsub4_buffer)
+                
+        np.multiply(dmult2_buffer, dsub4_buffer, out=dout_buffer)
+        
+        #prev_A, x_normalized, batch_mean, batch_variance = cache
+        
+        #dgamma = np.sum(dA*x_normalized, axis=0, keepdims=True)
+        #dbeta = np.sum(dA, axis=0, keepdims=True)
+        
+        #m = prev_A.shape[0]
+        #t = 1/np.sqrt(batch_variance + self.epsilon)
+        #curr_dA = (self.gamma * t/m) * (m*dA - np.sum(dA, axis=0) - t**2 * (prev_A-batch_mean) * np.sum(dA * (prev_A - batch_mean), axis=0))
+        
+        return
 
 
 class Conv():
