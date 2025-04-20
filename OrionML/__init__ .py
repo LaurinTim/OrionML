@@ -655,14 +655,15 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     np.random.seed(0)
-    seq = Sequential([Layer.Linear(784, 512, activation="relu"), Layer.BatchNorm(512), Layer.Linear(512, 256, activation="relu"), Layer.Linear(256, 128, activation="relu"), 
-                      Layer.Linear(128, 64, activation="relu"), Layer.BatchNorm(64), Layer.Linear(64, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
+    #seq = Sequential([Layer.Linear(784, 512, activation="relu"), Layer.BatchNorm(512), Layer.Linear(512, 256, activation="relu"), Layer.Linear(256, 128, activation="relu"), 
+    #                  Layer.Linear(128, 64, activation="relu"), Layer.BatchNorm(64), Layer.Linear(64, 32, activation="relu"), Layer.Linear(32, 10, activation="softmax")])
     
     #seq = Sequential([Layer.Linear(784, 3, activation="relu"), Layer.BatchNorm(3), Layer.Linear(3, 10, activation="softmax")])
+    seq = Sequential([Layer.Linear(784, 3, activation="relu"), Layer.Dropout(0.3), Layer.Linear(3, 10, activation="softmax")])
 
-    nn = NeuralNetwork(seq, optimizer="gd", loss="cross_entropy", learning_rate=1e-2, verbose=10)
+    nn = NeuralNetwork(seq, optimizer="gd", loss="cross_entropy", learning_rate=1, verbose=10)
     
-    nn.fit(train_X, train_y, epochs=10, batch_size=None, validation=[val_X, val_y])
+    nn.fit(train_X, train_y, epochs=1, batch_size=None, validation=[val_X, val_y])
     
 # %%
 

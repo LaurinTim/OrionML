@@ -234,7 +234,7 @@ class Linear():
         np.matmul(A_prev_buffer.T, dA_activation_buffer, out=dw_buffer)
         np.sum(dA_activation_buffer, axis=0, keepdims=True, out=db_buffer)
         np.matmul(dA_activation_buffer, self.w.T, out=dout_buffer)
-        
+                
         return
     
        
@@ -260,6 +260,8 @@ class Dropout():
         self.in_dim = None
         self.out_dim = None
         
+        self.buffers = {}
+        
     def type(self):
         '''
 
@@ -281,6 +283,14 @@ class Dropout():
 
         '''
         return f"OrionML.Layer.Dropout (dropout probability: {self.dropout_probability})"
+    
+    def init_buffers(self, batch_size):
+        '''
+        Allocate mask and output buffers once shapes are known.
+        '''
+        self.buffers["mask"] = np.empty((batch_size, *self.in_dim), dtype=bool)
+        self.buffers["out"]  = np.empty((batch_size, *self.in_dim), dtype=float)
+        self.buffers["random"]  = np.empty((batch_size, *self.in_dim), dtype=float)
         
     def value(self, activation_output, training=False):
         '''
@@ -303,23 +313,15 @@ class Dropout():
             activation_output that was set to 0, otherwise 1.
 
         '''
-        if training==False:
-            return activation_output, np.zeros(1)
-        
-        mask = np.random.rand(*activation_output.shape) > self.dropout_probability
-        res = mask*activation_output
-        if self.scale==True:
-            res = res * 1/(1-self.dropout_probability)
-            
-        return res, mask
+        return activation_output
     
-    def forward(self, prev_A, training=False):
+    def forward(self, A_prev, out_buffer, training=False):
         '''
         Forward step of a dropout Layer in a Neural Network.
 
         Parameters
         ----------
-        prev_A : ndarray, shape: (input size, output size)
+        A_prev : ndarray, shape: (input size, output size)
             Data before the current dropout Layer is applied.
         training : bool, optional
             Whether the Layer is currently in training or not. The default is False.
@@ -336,12 +338,20 @@ class Dropout():
                     Mask used in the dropout Layer.
                 
         '''        
-        curr_A, curr_mask = self.value(prev_A, training=training)
-        cache = (prev_A, curr_mask)
+        random_buffer = self.buffers["random"]
+        mask = self.buffers["mask"]
         
-        return curr_A, cache
+        random_buffer = np.random.rand(*A_prev.shape)
+        np.greater(random_buffer, self.dropout_probability, out=mask)
+                
+        np.multiply(A_prev, mask, out=out_buffer)
+                
+        if self.scale:
+            np.divide(out_buffer, 1.0 - self.dropout_probability, out=out_buffer)
+                                
+        return
     
-    def backward(self, dA, cache, training=False):
+    def backward(self, dA, dout_buffer, training=False):
         '''
         Backward step of a dropout Layer in a Neural Network.
 
@@ -361,12 +371,13 @@ class Dropout():
             Derivative of all Layers in the Neural Network starting from the current Layer.
 
         '''
-        assert training, "Training set to False in the backward pass of a Dropout layer."
-        
-        prev_A, curr_mask = cache
-        prev_dA = curr_mask * dA
-        
-        return prev_dA
+        mask = self.buffers["mask"]
+        np.multiply(dA, mask, out=dout_buffer)
+                
+        if self.scale:
+            np.divide(dout_buffer, 1.0 - self.dropout_probability, out=dout_buffer)
+                        
+        return
 
     
 class BatchNorm():
