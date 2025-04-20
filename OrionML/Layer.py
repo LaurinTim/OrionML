@@ -946,10 +946,13 @@ class Conv():
         self.w = np.zeros((self.kernel_size, self.kernel_size, self.in_channels, self.out_channels))
         self.b = np.zeros((1, self.out_channels))
         
+        self.ImCol = utils.ImCol()
         self.im2col_indices = None
         
         self.in_dim = None
         self.out_dim = None
+        
+        self.buffers = {}
                 
     def type(self):
         '''
@@ -993,6 +996,27 @@ class Conv():
         else:
             assert False, "ERROR: Invalid activation function. Please set activation to one of the following: {linear, relu, elu, leakyrelu, softplus, sigmoid, tanh}."
             
+    def init_buffers(self, batch_size):
+        self.buffers["A_prev"] = np.empty((batch_size, *self.in_dim))
+        self.buffers["A_col"] = np.empty((self.kernel_size * self.kernel_size * self.in_channels, batch_size * self.out_dim[0] * self.out_dim[1]))
+        self.buffers["Z_col"] = np.empty((self.out_channels, batch_size * self.out_dim[0] * self.out_dim[1]))
+        self.buffers["Z"] = np.empty((batch_size, *self.out_dim))
+        self.buffers["A_unflattened"] = np.empty((batch_size, *self.out_dim))
+        self.buffers["act_buf"] = np.empty((batch_size, *self.out_dim))
+        self.buffers["dA_act"] = np.empty((batch_size, *self.out_dim))
+        self.buffers["dA_col"] = np.empty((self.kernel_size * self.kernel_size * self.in_channels, batch_size * self.out_dim[0] * self.out_dim[1]))
+        
+        self.buffers["dw"] = np.empty_like(self.w)
+        self.buffers["db"] = np.empty_like(self.b)
+        
+        self.activation_function.init_buffers(batch_size, self.out_dim)
+        
+        self.im2col_indices = utils.im2col_indices((batch_size, *self.in_dim), self.kernel_size, self.kernel_size, stride=self.stride, padding=self.padding)
+        
+        if self.padding=="same":
+            self.padding = math.floor(1/2 * (self.kernel_size + (self.stride - 1) * (self.in_dim[1] - 1)))
+        
+        return
             
     def update_parameters(self, w_new, b_new=None):
         '''
@@ -1061,9 +1085,9 @@ class Conv():
         if self.flatten:
             output = output.reshape(output.shape[0], -1)
                                             
-        return output, (A_col, out_convoluted)
+        return output
     
-    def forward(self, prev_A, training=None):
+    def forward(self, prev_A, out_buffer, training=None):
         '''
         Forward step of a convolutional Layer in a Neural Network.
 
@@ -1088,18 +1112,38 @@ class Conv():
                     Array containing the sliding windows of prev_A used for the convolution.
 
         '''
-        if self.padding=="same":
-            self.padding = math.floor(1/2 * (self.kernel_size + (self.stride - 1) * (prev_A.shape[1] - 1)))
-        
-        if self.im2col_indices is None:
-            self.im2col_indices = utils.im2col_indices(prev_A.shape, self.kernel_size, self.kernel_size, stride=self.stride, padding=self.padding)
+       # 1) copy input
+        np.copyto(self.buffers['A_prev'], prev_A)
+        A_prev = self.buffers['A_prev']
+        A_col = self.buffers['A_col']
+        Z_col = self.buffers["Z_col"]
+        Z = self.buffers["Z"]
 
-        curr_A, (A_col, A_convoluted) = self.value(prev_A, training=training)
-        cache = (prev_A, A_col, A_convoluted)
+        # 2) im2col into local buffer
+        self.ImCol.im2col_buffered(A_prev, self.kernel_size, self.kernel_size,
+                             stride=self.stride, padding=self.padding,
+                             indices=self.im2col_indices, out_buffer=A_col)
         
-        return curr_A, cache
+        # 3) convolution via matrix multiply
+        w_col = self.w.reshape(-1, self.out_channels)
+        np.dot(w_col.T, A_col, out=Z_col)
+        np.add(Z_col, self.b.T, out=Z_col)
+        
+        # 4) reshape to Z buffer
+        Z = Z_col.T.reshape(Z.shape)
+                
+        # 5) activation
+        if not self.flatten:
+            self.activation_function.value_buffered(Z, out_buffer)
+        
+        else:
+            A_unflattened = self.buffers["A_unflattened"]
+            self.activation_function.value_buffered(Z, A_unflattened)
+            out_buffer = A_unflattened.reshape(A_unflattened.shape[0], -1)
+                    
+        return
     
-    def backward(self, dA, cache, training=False):
+    def backward(self, dA, dw_buffer, db_buffer, dout_buffer, training=False):
         """
         Backward pass for a convolutional layer using im2col and col2im.
     
@@ -1119,38 +1163,40 @@ class Conv():
         db : ndarray
             Gradient with respect to the biases, of shape (1, out_channels).
         """
-        
-        A_prev, A_col, A_convoluted = cache
-        N, H, W, C = A_prev.shape
-        
         if self.flatten:
-            dA = dA.reshape(dA.shape[0], (A_prev.shape[1] + 2*self.padding - self.kernel_size)//self.stride + 1, (A_prev.shape[2] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
+            dA = dA.reshape(dA.shape[0], (self.in_dim[0] + 2*self.padding - self.kernel_size)//self.stride + 1, (self.in_dim[1] + 2*self.padding - self.kernel_size)//self.stride + 1, self.out_channels)
         
-        d_activ = self.activation_function.derivative(A_convoluted)
-        dA = d_activ * dA
-    
-        # Reshape upstream gradients:
-        # dout is of shape (N, H_out, W_out, out_channels); convert it into 
-        # shape (out_channels, N*H_out*W_out) for easier matrix multiplication.
-        dA_reshaped = dA.transpose(0, 3, 1, 2).reshape(self.out_channels, -1)
-    
-        # Gradient with respect to bias: sum over all spatial locations and examples.
-        db = np.sum(dA, axis=(0, 1, 2)).reshape(1, -1)
-    
-        # Gradient with respect to weights.
-        # Compute dW_col = X_col dot (dout reshaped transposed), then reshape.
-        dw_col = A_col.dot(dA_reshaped.T)  # shape: (FH*FW*C, out_channels)
-        dw = dw_col.reshape(self.w.shape)
-    
-        # Gradient with respect to the input:
-        # Compute dX_col = weights (reshaped) dot dout_reshaped.
-        w_col = self.w.reshape(-1, self.out_channels)  # shape: (FH*FW*C, out_channels)
-        dA_col = np.matmul(w_col, dA_reshaped) #w_col.dot(dA_reshaped)      # shape: (FH*FW*C, N*H_out*W_out)
-        
-        # Use col2im to reshape dX_col back to input shape.
-        curr_dA = utils.col2im(dA_col, A_prev.shape, self.kernel_size, self.kernel_size, self.stride, self.padding, indices = self.im2col_indices)
-            
-        return curr_dA, dw, db
+        # 1) activation derivative
+        Z = self.buffers['Z']
+        act_buf = self.buffers["act_buf"]
+        # write into activation's d_activation buffer
+        self.activation_function.derivative_buffered(Z, out_buffer=act_buf)
+        # multiply by incoming gradient
+        dA_act = self.buffers['dA_act']
+        np.multiply(dA, act_buf, out=dA_act)
+
+        # reshape for parameter gradients
+        dA_reshaped = dA_act.transpose(0,3,1,2).reshape(self.out_channels, -1)
+
+        # 2) bias gradient
+        np.sum(dA_act, axis=(0,1,2), keepdims=True, out=db_buffer)
+
+        # 3) weight gradient
+        dw_col = self.buffers['A_col'].dot(dA_reshaped.T)
+        dw_buffer[:] = dw_col.reshape(dw_buffer.shape)
+
+        # 4) gradient wrt im2col
+        dA_col = self.buffers['dA_col']
+        w_col = self.w.reshape(-1, self.out_channels)
+        np.matmul(w_col, dA_reshaped, out=dA_col)
+
+        # 5) col2im to get prev gradient
+        self.ImCol.col2im_buffered(dA_col, self.buffers['A_prev'].shape,
+                               self.kernel_size, self.kernel_size,
+                               stride=self.stride, padding=self.padding,
+                               indices=self.im2col_indices, out_buffer = dout_buffer)
+                
+        return
     
 # %%
 

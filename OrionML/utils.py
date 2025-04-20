@@ -222,6 +222,216 @@ def im2col_indices(x_shape, field_height, field_width, stride=1, padding=0):
     return (k, i, j)
 
 
+class ImCol():
+    def __init__(self):
+        self.buffers = {}
+        
+    def im2col_buffered(self, x, field_height, field_width, indices, out_buffer, stride=1, padding=0):
+        '''
+        Convert images to column matrix.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (N, H, W, C)
+            Input images. N is the number of images, H and W are the height and width of 
+            each image and C is the number of channels of each image.
+        field_height : int
+            Kernel height.
+        field_width : int
+            Kernel width.
+        stride : int, optional
+            Stride of the convolution. The default is 1.
+        padding : int, optional
+            Padding to be applied to the input. The default is 0.
+        indices : tuple, optional
+            Result from im2col_indices. If this function gets called multiple times with the same parameters 
+            except for x, it is more efficient to calculate the indices once and then pass them directly to 
+            this function. The default is None, in which case im2col_indices gets called to get the indices.
+
+        Returns
+        -------
+        cols : ndarray, shape: (field_height * field_width * C, N * out_height * out_width)
+            Column matrix representation of the input data. out_height and out_width are:
+                out_height = (H + 2*padding - field_height)//stride + 1)
+                out_width = (W + 2*padding - field_width)//stride + 1
+            The first out_height * out_width columns correspond to the first image in the 
+            input data, and so on. The first field_height * field_width rows correspond to 
+            the first channel, and so on.
+
+        '''
+        k, i, j = indices
+            
+        x_padded = np.pad(x, ((0,), (padding,), (padding,), (0,)), mode="constant")
+        cols = x_padded[:, i, j, k]  # shape: (N, C * field_height * field_width, out_height * out_width)
+        np.concatenate(cols, axis=1, out=out_buffer) # shape: (field_height * field_width * C, N * out_height * out_width)
+        
+        return
+    
+    def col2im_buffered(self, cols, x_shape, field_height, field_width, indices, out_buffer, stride=1, padding=0):
+        """
+        Reconstruct images from their column matrix representation.
+        
+        Parameters
+        ----------
+        cols : ndarray, shape: (field_height * field_width * C, N * out_height * out_width)
+            Column matrix of shape where N is the number of images and (out_height, out_width) are:
+              out_height = (height + 2*padding - field_height) // stride + 1
+              out_width  = (W + 2*padding - field_width)  // stride + 1
+            with the original input shape x_shape = (N, H, W, C).
+        x_shape : tuple
+            The shape of the input images: (N, H, W, C).
+        field_height : int
+            Height of each patch (typically the kernel height).
+        field_width : int
+            Width of each patch (typically the kernel width).
+        stride : int, optional
+            Stride used in the convolution. The default is 1.
+        padding : int, optional
+            Padding that was applied to the input images. The default is 0.
+        indices : tuple, optional
+            Result from im2col_indices. If this function gets called multiple times with the same parameters 
+            except for cols, it is more efficient to calculate the indices once and then pass them directly to 
+            this function. The default is None, in which case im2col_indices gets called to get the indices.
+            
+        Returns
+        -------
+        x : ndarray, shape: (N, H, W, C)
+            Reconstructed images.
+        """        
+        # Get the indices for the patches.
+        k, i, j = indices
+        
+        N, H, W, C = x_shape
+        H_padded, W_padded = H + 2 * padding, W + 2 * padding
+        # Start with an array of zeros that will accumulate the results.
+        x_padded = np.zeros((N, H_padded, W_padded, C), dtype=cols.dtype)
+        
+        # Get the indices for the patches.
+        k, i, j = im2col_indices(x_shape, field_height, field_width, stride, padding)
+        # Compute the output spatial dimensions.
+        out_height = (H + 2 * padding - field_height) // stride + 1
+        out_width  = (W + 2 * padding - field_width) // stride + 1
+
+        # Reshape cols to have shape (N, C*field_height*field_width, out_height*out_width)
+        cols_reshaped = cols.reshape(C * field_height * field_width, N, out_height * out_width)
+        cols_reshaped = cols_reshaped.transpose(1, 0, 2)  # Now shape is (N, C*field_height*field_width, out_height*out_width)
+            
+        # Use np.add.at to scatter the values back into the padded image.
+        # Note: i, j, k all have shape (C * field_height * field_width, out_height*out_width)
+        if padding==0:
+            np.add.at(x_padded, (slice(None), i, j, k), cols_reshaped, out=out_buffer)
+        
+        # Remove padding if needed.
+        else:
+            out_padded = np.add.at(x_padded, (slice(None), i, j, k), cols_reshaped)
+            out_buffer = out_padded[:, padding:-padding, padding:-padding, :]
+            
+        return
+        
+    def im2col(self, x, field_height, field_width, stride=1, padding=0, indices=None):
+        '''
+        Convert images to column matrix.
+
+        Parameters
+        ----------
+        x : ndarray, shape: (N, H, W, C)
+            Input images. N is the number of images, H and W are the height and width of 
+            each image and C is the number of channels of each image.
+        field_height : int
+            Kernel height.
+        field_width : int
+            Kernel width.
+        stride : int, optional
+            Stride of the convolution. The default is 1.
+        padding : int, optional
+            Padding to be applied to the input. The default is 0.
+        indices : tuple, optional
+            Result from im2col_indices. If this function gets called multiple times with the same parameters 
+            except for x, it is more efficient to calculate the indices once and then pass them directly to 
+            this function. The default is None, in which case im2col_indices gets called to get the indices.
+
+        Returns
+        -------
+        cols : ndarray, shape: (field_height * field_width * C, N * out_height * out_width)
+            Column matrix representation of the input data. out_height and out_width are:
+                out_height = (H + 2*padding - field_height)//stride + 1)
+                out_width = (W + 2*padding - field_width)//stride + 1
+            The first out_height * out_width columns correspond to the first image in the 
+            input data, and so on. The first field_height * field_width rows correspond to 
+            the first channel, and so on.
+
+        '''
+        if indices is None:
+            k, i, j = im2col_indices(x.shape, field_height, field_width, stride, padding)
+        else:
+            k, i, j = indices
+            
+        x_padded = np.pad(x, ((0,), (padding,), (padding,), (0,)), mode="constant")
+        cols = x_padded[:, i, j, k]  # shape: (N, C * field_height * field_width, out_height * out_width)
+        cols = np.concatenate(cols, axis=1) # shape: (field_height * field_width * C, N * out_height * out_width)
+        return cols
+    
+    def col2im(self, cols, x_shape, field_height, field_width, stride=1, padding=0, indices=None):
+        """
+        Reconstruct images from their column matrix representation.
+        
+        Parameters
+        ----------
+        cols : ndarray, shape: (field_height * field_width * C, N * out_height * out_width)
+            Column matrix of shape where N is the number of images and (out_height, out_width) are:
+              out_height = (height + 2*padding - field_height) // stride + 1
+              out_width  = (W + 2*padding - field_width)  // stride + 1
+            with the original input shape x_shape = (N, H, W, C).
+        x_shape : tuple
+            The shape of the input images: (N, H, W, C).
+        field_height : int
+            Height of each patch (typically the kernel height).
+        field_width : int
+            Width of each patch (typically the kernel width).
+        stride : int, optional
+            Stride used in the convolution. The default is 1.
+        padding : int, optional
+            Padding that was applied to the input images. The default is 0.
+        indices : tuple, optional
+            Result from im2col_indices. If this function gets called multiple times with the same parameters 
+            except for cols, it is more efficient to calculate the indices once and then pass them directly to 
+            this function. The default is None, in which case im2col_indices gets called to get the indices.
+            
+        Returns
+        -------
+        x : ndarray, shape: (N, H, W, C)
+            Reconstructed images.
+        """
+        # Get the indices for the patches.
+        if indices is None:
+            k, i, j = im2col_indices(x_shape, field_height, field_width, stride, padding)
+        else:
+            k, i, j = indices
+        
+        N, H, W, C = x_shape
+        H_padded, W_padded = H + 2 * padding, W + 2 * padding
+        # Start with an array of zeros that will accumulate the results.
+        x_padded = np.zeros((N, H_padded, W_padded, C), dtype=cols.dtype)
+        
+        # Get the indices for the patches.
+        k, i, j = im2col_indices(x_shape, field_height, field_width, stride, padding)
+        # Compute the output spatial dimensions.
+        out_height = (H + 2 * padding - field_height) // stride + 1
+        out_width  = (W + 2 * padding - field_width) // stride + 1
+
+        # Reshape cols to have shape (N, C*field_height*field_width, out_height*out_width)
+        cols_reshaped = cols.reshape(C * field_height * field_width, N, out_height * out_width)
+        cols_reshaped = cols_reshaped.transpose(1, 0, 2)  # Now shape is (N, C*field_height*field_width, out_height*out_width)
+            
+        # Use np.add.at to scatter the values back into the padded image.
+        # Note: i, j, k all have shape (C * field_height * field_width, out_height*out_width)
+        np.add.at(x_padded, (slice(None), i, j, k), cols_reshaped)
+        
+        # Remove padding if needed.
+        if padding == 0:
+            return x_padded
+        return x_padded[:, padding:-padding, padding:-padding, :]
+    
 def im2col(x, field_height, field_width, stride=1, padding=0, indices=None):
     '''
     Convert images to column matrix.
