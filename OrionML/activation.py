@@ -11,7 +11,7 @@ class linear():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the Linear activation.
+            Input data.
     
         Returns
         -------
@@ -27,12 +27,12 @@ class linear():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a Linear activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a Linear activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a Linear activation function.
     
         '''
         return np.ones(z.shape)
@@ -48,7 +48,7 @@ class relu():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the ReLU activation function.
+            Input data.
     
         Returns
         -------
@@ -64,12 +64,12 @@ class relu():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a ReLU activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a ReLU activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a ReLU activation function.
     
         '''
         return z>=0
@@ -93,7 +93,7 @@ class elu():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the eLU activation function.
+            Input data.
     
         Returns
         -------
@@ -109,12 +109,12 @@ class elu():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a eLU activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a eLU activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a eLU activation function.
     
         '''
         return np.array(z>=0, dtype=float) + (np.array(z<0, dtype=float))*self.alpha*np.exp(z)
@@ -138,7 +138,7 @@ class leakyrelu():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the Leaky ReLU activation function.
+            Input data.
     
         Returns
         -------
@@ -154,12 +154,12 @@ class leakyrelu():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a Leaky ReLU activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a Leaky ReLU activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a Leaky ReLU activation function.
     
         '''
         return np.array(z>=0, dtype=float) + self.alpha*np.array(z<0, dtype=float)
@@ -175,7 +175,7 @@ class softplus():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the Softplus activation function.
+            Input data.
     
         Returns
         -------
@@ -191,12 +191,12 @@ class softplus():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a Softplus activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a Softplus activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a Softplus activation function.
     
         '''
         return 1/(1+np.exp(z))
@@ -212,7 +212,7 @@ class sigmoid():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the Sigmoid activation function.
+            Input data.
     
         Returns
         -------
@@ -228,12 +228,12 @@ class sigmoid():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a Sigmoid activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a Sigmoid activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a Sigmoid activation function.
     
         '''
         sig = self.value(z)
@@ -250,7 +250,7 @@ class tanh():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the Tanh activation function.
+            Input data.
     
         Returns
         -------
@@ -266,12 +266,12 @@ class tanh():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a Tanh activation function.
+            Input data.
     
         Returns
         -------
-        ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a Tanh activation function.
+        ndarray, shape: (input size, output size)
+            Derivative at the inputs with respect to a Tanh activation function.
     
         '''
         res = self.value(z)
@@ -288,7 +288,7 @@ class softmax():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values to put through the Softmax activation function.
+            Input data.
     
         Returns
         -------
@@ -306,12 +306,12 @@ class softmax():
         Parameters
         ----------
         z : ndarray, shape: (input size, output size)
-            Values for which to get the derivate with respect to a Softmax activation function.
+            Input data.
     
         Returns
         -------
         ndarray, shape: (input size, output size, output size)
-            Derivative at the values with respect to a Softmax activation function.
+            Derivative at the inputs with respect to a Softmax activation function.
     
         '''
         sz = self.value(z)
