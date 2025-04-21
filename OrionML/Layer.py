@@ -275,12 +275,12 @@ class Dropout():
             activation_output that was set to 0, otherwise 1.
 
         '''
-        if training==False:
+        if not training:
             return activation_output, np.zeros(1)
         
         mask = np.random.rand(*activation_output.shape) > self.dropout_probability
         res = mask*activation_output
-        if self.scale==True:
+        if self.scale:
             res = res * 1/(1-self.dropout_probability)
             
         return res, mask
@@ -337,6 +337,9 @@ class Dropout():
         
         prev_A, curr_mask = cache
         prev_dA = curr_mask * dA
+        
+        if self.scale:
+            prev_dA = prev_dA * 1/(1-self.dropout_probability)
         
         return prev_dA
 
@@ -527,6 +530,7 @@ class BatchNorm2D():
         self.epsilon = epsilon
         self.momentum = momentum
         self.channels = channels
+        self.sample_dim = channels
         self.dimension = np.array([self.channels])
         
         self.gamma = np.random.randn(1, self.channels)

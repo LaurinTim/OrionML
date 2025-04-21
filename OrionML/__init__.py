@@ -556,25 +556,27 @@ class NeuralNetwork():
                 
                 tst = np.array([np.array([np.isnan(val).any() for val in bal]).any() for bal in grads]).any()
                 assert not tst, "hello nan"
-                                                                
+                                                                                
             self.tfor.append(curr_tfor)
             self.tbak.append(curr_tbak)
                             
             self.J_h.append(AL)
+            print(AL)
+            
             if self.verbose and ((i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0):
                 if not validation is None:
                     pred_val = np.array([np.random.multinomial(1,val) for val in self.sequential(validation[0])])
                     same_arr_val = np.array([np.array_equal(validation[1][i], pred_val[i]) for i in range(len(validation[1]))])
                     acc_val = np.sum(same_arr_val)/len(validation[1])
                     
-                    #pred_train = np.array([np.random.multinomial(1,val) for val in self.sequential(x)])
-                    #same_arr_train = np.array([np.array_equal(y[i], pred_train[i]) for i in range(len(y))])
-                    #acc_train = np.sum(same_arr_train)/len(y)
+                    pred_train = np.array([np.random.multinomial(1,val) for val in self.sequential(x)])
+                    same_arr_train = np.array([np.array_equal(y[i], pred_train[i]) for i in range(len(y))])
+                    acc_train = np.sum(same_arr_train)/len(y)
                     
                     print(f"Iteration {i+1:4}:")
                     #print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):8.4}, {AL:8.4}), accuracy {100*acc_train:2.1f}%.\n")
-                    #print(f"Training:   Loss {self.loss_function.value(y, pred_train):8.4} ({self.loss_function.value(y, self.sequential(x)):5.4}), accuracy {100*acc_train:2.1f}%.")
-                    print(f"Validation: Loss {self.loss_function.value(validation[1], pred_val):8.4} ({self.loss_function.value(validation[1], self.sequential(validation[0])):5.10}), accuracy {100*acc_val:2.1f}%.\n")
+                    print(f"Training   Loss: {self.loss_function.value(y, pred_train):8.4}, accuracy {100*acc_train:2.1f}%.")
+                    print(f"Validation Loss: {self.loss_function.value(validation[1], pred_val):8.4}, accuracy {100*acc_val:2.1f}%.\n")
                     
                 else:
                     print(f"Iteration {i+1:4} training Loss: {AL:1.4}")
