@@ -327,20 +327,6 @@ def col2im(cols, x_shape, field_height, field_width, stride=1, padding=0, indice
         return x_padded
     return x_padded[:, padding:-padding, padding:-padding, :]
 
-# %%
-    
-if __name__ == "__main__":
-    a = np.array([[[[2,5],[0,2],[2,0]],
-                   [[3,0],[3,1],[1,4]],
-                   [[4,4],[1,0],[3,4]]],
-                  
-                  [[[5,1],[2,4],[3,4]],
-                   [[0,3],[0,5],[2,0]],
-                   [[4,0],[5,2],[2,1]]]])
-    
-    al = im2col(a, 3, 3, 1, 0)
-    
-    am = col2im(al, a.shape, 3, 3, 1, 0)
     
     
         
