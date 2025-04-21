@@ -69,7 +69,7 @@ There are some other tools that can be used to prepare data in OrionML.utils. A 
 
 ## Examples
 
-There are some examples available in the examples directory. 
+There are some examples available in the Examples directory. 
 
 For regression, the GDRegressor_example_Boston_housing notebook contains an example predicting house prices in Boston based on 13 features.
 
