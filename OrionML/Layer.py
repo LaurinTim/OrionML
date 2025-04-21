@@ -43,10 +43,7 @@ class Linear():
         
         self.trainable = True
         self.dimension = np.array([dim1, dim2])
-        
-        self.in_dim = None
-        self.out_dim = None
-                
+                        
     def type(self):
         '''
 
@@ -234,10 +231,7 @@ class Dropout():
         self.scale = scale
         
         self.trainable = False
-        
-        self.in_dim = None
-        self.out_dim = None
-        
+                
     def type(self):
         '''
 
@@ -377,10 +371,7 @@ class BatchNorm():
         self.running_variance = np.zeros((1, self.sample_dim))
         
         self.trainable = True
-        
-        self.in_dim = None
-        self.out_dim = None
-        
+                
     def type(self):
         '''
 
@@ -544,10 +535,7 @@ class BatchNorm2D():
         self.running_variance = np.zeros((1, self.channels))
         
         self.trainable = True
-        
-        self.in_dim = None
-        self.out_dim = None
-        
+                
     def type(self):
         '''
 
@@ -736,10 +724,7 @@ class Conv():
         self.b = np.zeros((1, self.out_channels))
         
         self.im2col_indices = None
-        
-        self.in_dim = None
-        self.out_dim = None
-                
+                        
     def type(self):
         '''
 
@@ -1109,10 +1094,7 @@ class Pool():
         self.pool_mode = pool_mode
         
         self.trainable = False
-        
-        self.in_dim = None
-        self.out_dim = None
-        
+                
     def type(self):
         '''
 
@@ -1323,10 +1305,7 @@ class Reshape():
         self.output_shape = output_shape
                 
         self.trainable = False
-        
-        self.in_dim = None
-        self.out_dim = None
-        
+                
     def type(self):
         '''
 
@@ -1447,8 +1426,6 @@ class Flatten():
                 
         self.trainable = False
         
-        self.in_dim = None
-        self.out_dim = None
         
     def type(self):
         '''
@@ -1470,7 +1447,7 @@ class Flatten():
             Description of the Reshape layer with information about the output and input shapes.
 
         '''
-        return f"OrionML.Layer.Flatten"
+        return "OrionML.Layer.Flatten"
     
     def value(self, A, training=False):
         '''
