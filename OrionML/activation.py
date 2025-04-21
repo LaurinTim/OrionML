@@ -319,40 +319,6 @@ class softmax():
         res = res + np.einsum("ij,jk->ijk", sz, np.eye(sz.shape[1]), optimize="optimal")
         return res
     
-# %%
-
-if __name__ == "__main__":
-    a = np.array([[[[-2,5],[0,2],[2,0]],
-                   [[3,0],[3,1],[1,4]],
-                   [[4,4],[1,0],[3,4]]],
-                  
-                  [[[5,1],[2,4],[3,4]],
-                   [[0,3],[0,5],[2,0]],
-                   [[4,0],[5,2],[2,1]]]])
-    
-    f = linear()
-    r = f.value(a)
-    dr = f.derivative(a)
-
-# %%
-
-if __name__ == "__main__":
-    in_channels = 3
-    out_channels = 128
-    kernel_size = 3
-    stride = 2
-    padding = 1
-    batch_size = (4, in_channels, 12, 10)  # expected input size
-
-    np.random.seed(42)  # for reproducibility
-
-    x = np.random.random(batch_size)  # create data for forward pass
-    
-    x = np.transpose(x, axes=(0,2,3,1))
-    
-    f = linear()
-    r = f.value(x)
-    dr = f.derivative(x)
 
 
 
