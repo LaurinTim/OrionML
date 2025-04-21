@@ -11,6 +11,23 @@ import regularizer
 import Layer
         
 def glorot(layers):
+    '''
+    Initialize parameters with glorot/Xavier initialization.
+
+    Parameters
+    ----------
+    layers : list
+        List containing the layers for which the trainanble parameters should 
+        be initialized.
+
+    Returns
+    -------
+    parameters : dict
+        Dictionary containing the parameters of the layers.
+    derivatives : dict
+        Dictionary containing arrays for the derivatines of the parameters.
+
+    '''
     parameters = {}
     derivatives = {}
     
@@ -56,6 +73,23 @@ def glorot(layers):
 
 
 def he(layers):
+    '''
+    Initialize parameters with He initialization.
+
+    Parameters
+    ----------
+    layers : list
+        List containing the layers for which the trainanble parameters should 
+        be initialized.
+
+    Returns
+    -------
+    parameters : dict
+        Dictionary containing the parameters of the layers.
+    derivatives : dict
+        Dictionary containing arrays for the derivatines of the parameters.
+
+    '''
     parameters = {}
     derivatives = {}
     
@@ -101,6 +135,23 @@ def he(layers):
 
 
 def uniform(layers):
+    '''
+    Initialize parameters in a uniform distribution.
+
+    Parameters
+    ----------
+    layers : list
+        List containing the layers for which the trainanble parameters should 
+        be initialized.
+
+    Returns
+    -------
+    parameters : dict
+        Dictionary containing the parameters of the layers.
+    derivatives : dict
+        Dictionary containing arrays for the derivatines of the parameters.
+
+    '''
     parameters = {}
     derivatives = {}
     
