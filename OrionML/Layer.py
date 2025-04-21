@@ -1134,10 +1134,6 @@ class Reshape():
         output_shape : tuple
             Shape of the output data.
 
-        Returns
-        -------
-        None.
-
         '''
         self.input_shape = None
         self.output_shape = output_shape
@@ -1248,17 +1244,7 @@ class Flatten():
     def __init__(self):
         '''
         Layer to flatten data. Can be used if e.g. a linear layer follows a pooling layer.
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Shape of the input data.
-        output_shape : tuple
-            Shape of the output data.
-
-        Returns
-        -------
-        None.
+        
 
         '''
                 
@@ -1271,7 +1257,7 @@ class Flatten():
         Returns
         -------
         str
-            String unique to Reshape layers.
+            String unique to Flatten layers.
 
         '''
         return "OrionML.Layer.Flatten"
@@ -1282,21 +1268,21 @@ class Flatten():
         Returns
         -------
         str
-            Description of the Reshape layer with information about the output and input shapes.
+            Description of the Flatten layer.
 
         '''
         return "OrionML.Layer.Flatten"
     
     def value(self, A, training=False):
         '''
-        Reshape the input.
+        Flatten the input.
         
         Parameters
         ----------
         A : ndarray, shape: self.input_shape
             Input Data.
         training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            Whether the Layer is currently in training or not. This has no effect for Flatten 
             layers. The default is False.
 
         Returns
@@ -1304,7 +1290,7 @@ class Flatten():
         A_curr : ndarray, shape: self.output_data
             Reshaped input data.
         cache : tuple
-            Empty tuple since no additional information is required for backwards propagation.
+            Tuple containing the shape of the input data starting from the first dimension.
 
         '''        
         A_curr = A.reshape((A.shape[0], -1))
@@ -1315,14 +1301,14 @@ class Flatten():
     
     def forward(self, prev_A, training=False):
         '''
-        Forward pass for a Reshape layer.
+        Forward pass for a Flatten layer.
 
         Parameters
         ----------
         A : ndarray, shape: self.input_shape
             Input Data.
         training : bool/None, optional
-            Whether the Layer is currently in training or not. This has no effect for Reshape 
+            Whether the Layer is currently in training or not. This has no effect for Flatten 
             layers. The default is False.
 
         Returns
@@ -1330,7 +1316,7 @@ class Flatten():
         A_curr : ndarray, shape: self.output_data
             Reshaped input data.
         cache : tuple
-            Empty tuple since no additional information is required for backwards propagation.
+            Tuple containing the shape of the input data starting from the first dimension.
 
         '''
         A_curr, cache = self.value(prev_A, training=training)
@@ -1338,7 +1324,7 @@ class Flatten():
     
     def backward(self, dA, cache, training=False):
         '''
-        Backward pass for a Reshape Layer.
+        Backward pass for a Flatten Layer.
 
         Parameters
         ----------
@@ -1351,7 +1337,7 @@ class Flatten():
         Returns
         -------
         dA_curr : ndarray, shape: self.input_shape
-            Reshaped upstream gradient.
+            Unflattened upstream gradient.
 
         '''    
         input_shape = cache
