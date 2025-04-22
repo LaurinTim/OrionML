@@ -76,3 +76,7 @@ For regression, the GDRegressor_example_Boston_housing notebook contains an exam
 For classification, animal_faces_GDCLassifier_example.py contains an example where pictures are classified into 12 categories, based on which animal can be seen on the picture. To minimize computational power, a histogram of oriented gradients (hog) is created for each image. An accuracy of around 90% is reached in the validation set. The same data is also evaluated with the SGDClassifier from sklearn, with which again an accuracy around 90% is reached.
 
 For Neural Networks, MNIST_NN_example contains an example for a Neural Netwok. In this example, this MNIST dataset consisting of images of handwritten digits between 0 and 9. The goal is to use image classification to figure out which number is written on the images.
+
+## Next Steps
+
+I am currently working on implementing the use of buffers in neural networks, so as to decrease the runtime. Also, I plan to soon implement the use of regularizers and variable learning rates for neural networks.
