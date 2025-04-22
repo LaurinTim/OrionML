@@ -1,6 +1,6 @@
 # Tools for Machine Learning built using numpy arrays.
 
-In this repository, there are tools for different machine learning tasks, programmed wholly in python, mainly using numpy.
+In this repository, there are tools for different machine learning tasks in python, mainly using numpy.
 As a first step, I created simple Regression and Classification methods. Both of these methods use gradient descent. The regression method is similar to the SGDRegressor from sklearn, if a batch size of 1 is chosen. Similarly, the classification method is similar to SGDClassifier from sklearn, if a batch size of 1 is chosen.
 As a next step, I built tools for neural networks. With these tools, any neural network architecture, using the supported functions, can be built. All tools for neural networks, that are implemented currently, are listed below.
 
