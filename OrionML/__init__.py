@@ -561,7 +561,7 @@ class NeuralNetwork():
             self.tbak.append(curr_tbak)
                             
             self.J_h.append(AL)
-            print(AL)
+            #print(AL)
             
             if self.verbose and ((i+1)% math.ceil(epochs/self.verbose_num) == 0 or i==0):
                 if not validation is None:
