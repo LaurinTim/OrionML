@@ -79,4 +79,4 @@ For Neural Networks, MNIST_NN_example contains an example for a Neural Netwok. I
 
 ## Next Steps
 
-I am currently working on implementing the use of buffers in neural networks, so as to decrease the runtime. Also, I plan to soon implement the use of regularizers for neural networks.
+I am currently working on implementing the use of buffers in neural networks, so as to decrease the runtime. Also, I plan to soon implement the use of regularizers and variable learning rates for neural networks.
