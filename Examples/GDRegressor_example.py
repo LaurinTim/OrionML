@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+from pathlib import Path
+import sys
 
 import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML")
+sys.path.insert(0, str(Path(os.path.abspath('')).resolve().parent))
+os.chdir(Path(os.path.abspath('')).resolve().parent)
 
 import OrionML as orn
 

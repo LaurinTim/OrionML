@@ -5,9 +5,12 @@ import math
 import copy
 import pandas as pd
 from time import time
+from pathlib import Path
+import sys
 
 import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+os.chdir(Path(__file__).resolve().parent)
 
 import Loss
 import utils

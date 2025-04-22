@@ -2,9 +2,12 @@ import numpy as np
 import math
 import copy
 from time import time
+from pathlib import Path
+import sys
 
 import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+os.chdir(Path(__file__).resolve().parent)
 
 import activation as activ
 import utils

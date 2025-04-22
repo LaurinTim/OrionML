@@ -16,13 +16,16 @@ from skimage.feature import hog
 from sklearn.metrics import confusion_matrix
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-data_path = r'C:\Users\main\Proton Drive\laurin.koller\My files\ML\repos\OrionML\Examples\example data\animal_face'
-
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
+import sys
 
 import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML")
+sys.path.insert(0, str(Path(os.path.abspath('')).resolve().parent))
+os.chdir(Path(os.path.abspath('')).resolve().parent)
+
+data_path = Path(os.path.abspath('')).resolve().parent.parent / "Examples" / "example data" / "animal_face"
 
 import OrionML as orn
 

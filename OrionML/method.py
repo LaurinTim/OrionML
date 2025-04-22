@@ -1,9 +1,12 @@
 import numpy as np
 import copy
 import math
+from pathlib import Path
+import sys
 
 import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+os.chdir(Path(__file__).resolve().parent)
 
 import Loss
 import activation

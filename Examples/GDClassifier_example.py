@@ -1,7 +1,10 @@
 import numpy as np
+from pathlib import Path
+import sys
 
 import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML")
+sys.path.insert(0, str(Path(os.path.abspath('')).resolve().parent))
+os.chdir(Path(os.path.abspath('')).resolve().parent)
 
 import OrionML as orn
 
@@ -12,7 +15,7 @@ import OrionML as orn
 
 x = np.array([[1,0,0,0,0,0], [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1]])
 y = np.array([[1,0,0], [1,0,0], [0,1,0], [0,1,0], [0,0,1], [0,0,1]])
-a = orn.method.GDClassifier(alpha=1e-1, num_iters=1000, verbose=True, batch_size=1)
+a = orn.method.GDClassifier(num_iters=1000, verbose=True, batch_size=1)
 a.fit(x, y)
 
 w, b = a.params

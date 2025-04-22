@@ -1,14 +1,4 @@
 import numpy as np
-
-import os
-os.chdir("C:\\Users\\main\\Proton Drive\\laurin.koller\\My files\\ML\\repos\\OrionML\\OrionML")
-
-import Loss
-import utils
-import method
-import activation
-import regularizer
-import Layer
         
 def glorot(layers):
     '''
